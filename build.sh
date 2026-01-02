@@ -1,17 +1,17 @@
 #!/bin/bash
 
-# Build script for quickVibe
+# Build script for Claude Quick
 # This script builds the Go project and creates a symlink in ~/.local/bin
 
 set -e  # Exit on any error
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_NAME="quickvibe"
+BINARY_NAME="claude-quick"
 BINARY_PATH="${PROJECT_DIR}/${BINARY_NAME}"
 INSTALL_DIR="${HOME}/.local/bin"
 SYMLINK_PATH="${INSTALL_DIR}/${BINARY_NAME}"
 
-echo "==> Building quickVibe..."
+echo "==> Building Claude Quick..."
 cd "${PROJECT_DIR}"
 go build -o "${BINARY_NAME}" .
 echo "    Build successful: ${BINARY_PATH}"
@@ -45,4 +45,4 @@ echo "You can add it by adding this line to your ~/.bashrc or ~/.zshrc:"
 echo ""
 echo "    export PATH=\"\${HOME}/.local/bin:\${PATH}\""
 echo ""
-echo "Then run 'quickvibe' from anywhere!"
+echo "Then run 'claude-quick' from anywhere!"

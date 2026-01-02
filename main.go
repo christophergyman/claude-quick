@@ -6,9 +6,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/chezu/quickvibe/internal/config"
-	"github.com/chezu/quickvibe/internal/devcontainer"
-	"github.com/chezu/quickvibe/internal/tui"
+	"github.com/chezu/claude-quick/internal/config"
+	"github.com/chezu/claude-quick/internal/devcontainer"
+	"github.com/chezu/claude-quick/internal/tui"
 )
 
 func main() {

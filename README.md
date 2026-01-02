@@ -1,8 +1,8 @@
-# QuickVibe
+# Claude Quick
 
 A terminal user interface for managing tmux sessions inside devcontainers.
 
-QuickVibe discovers devcontainer projects on your system, spins up containers, and provides an intuitive interface for creating and attaching to tmux sessions within them.
+Claude Quick discovers devcontainer projects on your system, spins up containers, and provides an intuitive interface for creating and attaching to tmux sessions within them.
 
 ## Features
 
@@ -27,22 +27,22 @@ QuickVibe discovers devcontainer projects on your system, spins up containers, a
 ### Build from Source
 
 ```bash
-git clone https://github.com/chezu/quickvibe.git
-cd quickvibe
-go build -o quickvibe .
+git clone https://github.com/chezu/claude-quick.git
+cd claude-quick
+go build -o claude-quick .
 ```
 
 Optionally, add to your PATH by creating a symlink:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$(pwd)/quickvibe" ~/.local/bin/quickvibe
+ln -sf "$(pwd)/claude-quick" ~/.local/bin/claude-quick
 ```
 
 ### Go Install
 
 ```bash
-go install github.com/chezu/quickvibe@latest
+go install github.com/chezu/claude-quick@latest
 ```
 
 ## Usage
@@ -50,7 +50,7 @@ go install github.com/chezu/quickvibe@latest
 Run the application:
 
 ```bash
-quickvibe
+claude-quick
 ```
 
 ### Workflow
@@ -58,7 +58,7 @@ quickvibe
 1. Select a devcontainer project from the discovered list
 2. Wait for the container to start
 3. Choose an existing tmux session or create a new one
-4. QuickVibe attaches you directly to the tmux session inside the container
+4. Claude Quick attaches you directly to the tmux session inside the container
 
 ### Keybindings
 
@@ -104,7 +104,7 @@ quickvibe
 
 ## Configuration
 
-QuickVibe looks for a configuration file at `~/.config/quickvibe/config.yaml`.
+Claude Quick looks for a configuration file at `~/.config/claude-quick/config.yaml`.
 
 ### Example Configuration
 
@@ -121,7 +121,7 @@ max_depth: 4
 
 ### Default Behavior
 
-Without a configuration file, QuickVibe searches your home directory with a max depth of 3.
+Without a configuration file, Claude Quick searches your home directory with a max depth of 3.
 
 ## How It Works
 

@@ -5,8 +5,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/chezu/quickvibe/internal/devcontainer"
-	"github.com/chezu/quickvibe/internal/tmux"
+	"github.com/chezu/claude-quick/internal/devcontainer"
+	"github.com/chezu/claude-quick/internal/tmux"
 )
 
 // State represents the current view state

@@ -29,7 +29,7 @@ func configPath() string {
 		homeDir, _ := os.UserHomeDir()
 		configDir = filepath.Join(homeDir, ".config")
 	}
-	return filepath.Join(configDir, "quickvibe", "config.yaml")
+	return filepath.Join(configDir, "claude-quick", "config.yaml")
 }
 
 // Load reads the configuration from the config file

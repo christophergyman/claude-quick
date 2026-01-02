@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chezu/quickvibe/internal/devcontainer"
+	"github.com/chezu/claude-quick/internal/devcontainer"
 )
 
 // RenderContainerSelect renders the container selection view
 func RenderContainerSelect(projects []devcontainer.Project, cursor int, width int) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	subtitle := SubtitleStyle.Render("Select Dev Container")
 
 	b.WriteString(title)
@@ -24,7 +24,7 @@ func RenderContainerSelect(projects []devcontainer.Project, cursor int, width in
 		b.WriteString("\n\n")
 		b.WriteString(DimmedStyle.Render("Add search paths to: "))
 		b.WriteString("\n")
-		b.WriteString(DimmedStyle.Render("~/.config/quickvibe/config.yaml"))
+		b.WriteString(DimmedStyle.Render("~/.config/claude-quick/config.yaml"))
 		return b.String()
 	}
 
@@ -54,7 +54,7 @@ func RenderContainerSelect(projects []devcontainer.Project, cursor int, width in
 func RenderContainerStarting(projectName string, spinnerView string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -72,7 +72,7 @@ func RenderContainerStarting(projectName string, spinnerView string) string {
 func RenderError(err error, hint string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -94,7 +94,7 @@ func RenderError(err error, hint string) string {
 func RenderConfirmDialog(operation, projectName string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -116,7 +116,7 @@ func RenderConfirmDialog(operation, projectName string) string {
 func RenderContainerOperation(operation, projectName, spinnerView string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 

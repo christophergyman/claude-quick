@@ -1,4 +1,4 @@
-module github.com/chezu/quickvibe
+module github.com/chezu/claude-quick
 
 go 1.25.1
 

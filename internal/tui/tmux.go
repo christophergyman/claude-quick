@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/chezu/quickvibe/internal/tmux"
+	"github.com/chezu/claude-quick/internal/tmux"
 )
 
 const newSessionOption = "[+ New Session]"
@@ -13,7 +13,7 @@ const newSessionOption = "[+ New Session]"
 func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	subtitle := SubtitleStyle.Render("tmux Sessions in: " + projectName)
 
 	b.WriteString(title)
@@ -55,7 +55,7 @@ func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int) s
 func RenderNewSessionInput(projectName string, ti textinput.Model) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	subtitle := SubtitleStyle.Render("New Session in: " + projectName)
 
 	b.WriteString(title)
@@ -75,7 +75,7 @@ func RenderNewSessionInput(projectName string, ti textinput.Model) string {
 func RenderAttaching(projectName, sessionName, spinnerView string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -101,7 +101,7 @@ func IsNewSessionSelected(sessions []tmux.Session, cursor int) bool {
 func RenderTmuxConfirmDialog(operation, sessionName string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -123,7 +123,7 @@ func RenderTmuxConfirmDialog(operation, sessionName string) string {
 func RenderTmuxOperation(operation, sessionName, spinnerView string) string {
 	var b strings.Builder
 
-	title := TitleStyle.Render("quickVibe")
+	title := TitleStyle.Render("claude-quick")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
