@@ -100,6 +100,50 @@ func Up(projectPath string) error {
 	return nil
 }
 
+// Stop stops the devcontainer by finding and stopping its Docker container
+func Stop(projectPath string) error {
+	// Find container by devcontainer label
+	findCmd := exec.Command("docker", "ps", "-q",
+		"--filter", fmt.Sprintf("label=devcontainer.local_folder=%s", projectPath))
+	output, err := findCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to find container: %v", err)
+	}
+	containerID := strings.TrimSpace(string(output))
+	if containerID == "" {
+		return fmt.Errorf("no running container found for project")
+	}
+	// Stop the container
+	stopCmd := exec.Command("docker", "stop", containerID)
+	var stderr bytes.Buffer
+	stopCmd.Stderr = &stderr
+	if err := stopCmd.Run(); err != nil {
+		return fmt.Errorf("failed to stop container: %s", stderr.String())
+	}
+	return nil
+}
+
+// Restart restarts the devcontainer
+func Restart(projectPath string) error {
+	findCmd := exec.Command("docker", "ps", "-a", "-q",
+		"--filter", fmt.Sprintf("label=devcontainer.local_folder=%s", projectPath))
+	output, err := findCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to find container: %v", err)
+	}
+	containerID := strings.TrimSpace(string(output))
+	if containerID == "" {
+		return Up(projectPath) // No container, just start
+	}
+	restartCmd := exec.Command("docker", "restart", containerID)
+	var stderr bytes.Buffer
+	restartCmd.Stderr = &stderr
+	if err := restartCmd.Run(); err != nil {
+		return fmt.Errorf("failed to restart container: %s", stderr.String())
+	}
+	return nil
+}
+
 // ExecInteractive executes a command inside the devcontainer interactively
 // This replaces the current process with the devcontainer exec
 func ExecInteractive(projectPath string, args []string) error {

@@ -45,7 +45,7 @@ func RenderContainerSelect(projects []devcontainer.Project, cursor int, width in
 	}
 
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Select  q: Quit"))
+	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Select  x: Stop  r: Restart  q: Quit"))
 
 	return b.String()
 }
@@ -86,6 +86,44 @@ func RenderError(err error, hint string) string {
 	}
 
 	b.WriteString(HelpStyle.Render("Press any key to continue"))
+
+	return b.String()
+}
+
+// RenderConfirmDialog renders a confirmation dialog for stop/restart operations
+func RenderConfirmDialog(operation, projectName string) string {
+	var b strings.Builder
+
+	title := TitleStyle.Render("quickVibe")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	actionText := "Stop"
+	if operation == "restart" {
+		actionText = "Restart"
+	}
+	b.WriteString(ErrorStyle.Render(fmt.Sprintf("%s container?", actionText)))
+	b.WriteString("\n\n")
+	b.WriteString("Project: ")
+	b.WriteString(SuccessStyle.Render(projectName))
+	b.WriteString("\n\n")
+	b.WriteString(HelpStyle.Render("y: Confirm  n/Esc: Cancel"))
+
+	return b.String()
+}
+
+// RenderContainerOperation renders progress during stop/restart operations
+func RenderContainerOperation(operation, projectName, spinnerView string) string {
+	var b strings.Builder
+
+	title := TitleStyle.Render("quickVibe")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	b.WriteString(SpinnerStyle.Render(spinnerView))
+	b.WriteString(fmt.Sprintf(" %s ", operation))
+	b.WriteString(SuccessStyle.Render(projectName))
+	b.WriteString("...")
 
 	return b.String()
 }

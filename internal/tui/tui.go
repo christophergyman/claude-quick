@@ -15,6 +15,10 @@ type State int
 const (
 	StateContainerSelect State = iota
 	StateContainerStarting
+	StateConfirmStop
+	StateConfirmRestart
+	StateContainerStopping
+	StateContainerRestarting
 	StateTmuxSelect
 	StateNewSessionInput
 	StateAttaching
@@ -42,6 +46,8 @@ type containerErrorMsg struct{ err error }
 type tmuxSessionsLoadedMsg struct{ sessions []string }
 type tmuxSessionCreatedMsg struct{}
 type attachMsg struct{ sessionName string }
+type containerStoppedMsg struct{}
+type containerRestartedMsg struct{}
 
 // New creates a new Model with discovered projects
 func New(projects []devcontainer.Project) Model {
@@ -103,6 +109,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sessionName := m.textInput.Value()
 		return m.attachToSession(sessionName)
 
+	case containerStoppedMsg, containerRestartedMsg:
+		m.state = StateContainerSelect
+		m.selectedProject = nil
+		return m, nil
+
 	case attachMsg:
 		// This triggers the actual attachment - we exit the TUI
 		return m, tea.Quit
@@ -123,6 +134,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case StateContainerSelect:
 		return m.handleContainerSelectKey(msg)
+	case StateConfirmStop, StateConfirmRestart:
+		return m.handleConfirmKey(msg)
 	case StateTmuxSelect:
 		return m.handleTmuxSelectKey(msg)
 	case StateNewSessionInput:
@@ -160,6 +173,37 @@ func (m Model) handleContainerSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.startContainer(),
 			)
 		}
+
+	case "x":
+		if len(m.projects) > 0 {
+			m.selectedProject = &m.projects[m.cursor]
+			m.state = StateConfirmStop
+		}
+
+	case "r":
+		if len(m.projects) > 0 {
+			m.selectedProject = &m.projects[m.cursor]
+			m.state = StateConfirmRestart
+		}
+	}
+	return m, nil
+}
+
+func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		if m.state == StateConfirmStop {
+			m.state = StateContainerStopping
+			return m, tea.Batch(m.spinner.Tick, m.stopContainer())
+		}
+		m.state = StateContainerRestarting
+		return m, tea.Batch(m.spinner.Tick, m.restartContainer())
+	case "n", "N", "esc":
+		m.state = StateContainerSelect
+		m.selectedProject = nil
+		return m, nil
+	case "ctrl+c":
+		return m, tea.Quit
 	}
 	return m, nil
 }
@@ -257,6 +301,32 @@ func (m Model) startContainer() tea.Cmd {
 	}
 }
 
+// stopContainer returns a command that stops the devcontainer
+func (m Model) stopContainer() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedProject == nil {
+			return containerErrorMsg{err: nil}
+		}
+		if err := devcontainer.Stop(m.selectedProject.Path); err != nil {
+			return containerErrorMsg{err: err}
+		}
+		return containerStoppedMsg{}
+	}
+}
+
+// restartContainer returns a command that restarts the devcontainer
+func (m Model) restartContainer() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedProject == nil {
+			return containerErrorMsg{err: nil}
+		}
+		if err := devcontainer.Restart(m.selectedProject.Path); err != nil {
+			return containerErrorMsg{err: err}
+		}
+		return containerRestartedMsg{}
+	}
+}
+
 // handleContainerStarted is called when container has started
 func (m Model) handleContainerStarted() (tea.Model, tea.Cmd) {
 	// Load tmux sessions
@@ -303,6 +373,34 @@ func (m Model) View() string {
 			projectName = m.selectedProject.Name
 		}
 		return RenderContainerStarting(projectName, m.spinner.View())
+
+	case StateConfirmStop:
+		projectName := ""
+		if m.selectedProject != nil {
+			projectName = m.selectedProject.Name
+		}
+		return RenderConfirmDialog("stop", projectName)
+
+	case StateConfirmRestart:
+		projectName := ""
+		if m.selectedProject != nil {
+			projectName = m.selectedProject.Name
+		}
+		return RenderConfirmDialog("restart", projectName)
+
+	case StateContainerStopping:
+		projectName := ""
+		if m.selectedProject != nil {
+			projectName = m.selectedProject.Name
+		}
+		return RenderContainerOperation("Stopping", projectName, m.spinner.View())
+
+	case StateContainerRestarting:
+		projectName := ""
+		if m.selectedProject != nil {
+			projectName = m.selectedProject.Name
+		}
+		return RenderContainerOperation("Restarting", projectName, m.spinner.View())
 
 	case StateTmuxSelect:
 		projectName := ""
