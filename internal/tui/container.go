@@ -46,6 +46,8 @@ func RenderContainerSelect(projects []devcontainer.Project, cursor int, width in
 
 	b.WriteString("\n")
 	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Select  x: Stop  r: Restart  ?: Config  q: Quit"))
+	b.WriteString("\n")
+	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d"))
 
 	return b.String()
 }

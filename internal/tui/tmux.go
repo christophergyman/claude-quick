@@ -47,6 +47,8 @@ func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int) s
 
 	b.WriteString("\n")
 	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Select  x: Stop  r: Restart  ?: Config  q: Back"))
+	b.WriteString("\n")
+	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d"))
 
 	return b.String()
 }
@@ -67,6 +69,8 @@ func RenderNewSessionInput(projectName string, ti textinput.Model) string {
 	b.WriteString(ti.View())
 	b.WriteString("\n\n")
 	b.WriteString(HelpStyle.Render("Enter: Create  Esc: Cancel"))
+	b.WriteString("\n")
+	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d"))
 
 	return b.String()
 }
