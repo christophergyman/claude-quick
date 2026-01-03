@@ -127,7 +127,7 @@ func RenderRefreshingStatus(spinnerView string) string {
 }
 
 // RenderDashboard renders the container dashboard with status indicators
-func RenderDashboard(projects []devcontainer.ProjectWithStatus, cursor int, width int) string {
+func RenderDashboard(instances []devcontainer.ContainerInstanceWithStatus, cursor int, width int) string {
 	var b strings.Builder
 
 	title := TitleStyle.Render("claude-quick")
@@ -138,7 +138,7 @@ func RenderDashboard(projects []devcontainer.ProjectWithStatus, cursor int, widt
 	b.WriteString(subtitle)
 	b.WriteString("\n\n")
 
-	if len(projects) == 0 {
+	if len(instances) == 0 {
 		b.WriteString(ErrorStyle.Render("No devcontainer projects found."))
 		b.WriteString("\n\n")
 		b.WriteString(DimmedStyle.Render("Add search paths to: "))
@@ -147,17 +147,18 @@ func RenderDashboard(projects []devcontainer.ProjectWithStatus, cursor int, widt
 		return b.String()
 	}
 
-	for i, project := range projects {
+	for i, instance := range instances {
 		// Status indicator
-		statusIcon := getStatusIcon(project.Status)
+		statusIcon := getStatusIcon(instance.Status)
 
 		// Session info for running containers
 		sessionInfo := ""
-		if project.Status == devcontainer.StatusRunning && project.SessionCount > 0 {
-			sessionInfo = fmt.Sprintf(" [%d sessions]", project.SessionCount)
+		if instance.Status == devcontainer.StatusRunning && instance.SessionCount > 0 {
+			sessionInfo = fmt.Sprintf(" [%d sessions]", instance.SessionCount)
 		}
 
-		display := fmt.Sprintf("%s %s%s", statusIcon, project.Name, sessionInfo)
+		// Use DisplayName() to show instance name (e.g., "project (claude1)")
+		display := fmt.Sprintf("%s %s%s", statusIcon, instance.DisplayName(), sessionInfo)
 
 		var line string
 		if i == cursor {
@@ -169,13 +170,13 @@ func RenderDashboard(projects []devcontainer.ProjectWithStatus, cursor int, widt
 		b.WriteString("\n")
 
 		// Show path on next line (dimmed)
-		pathLine := "    " + DimmedStyle.Render(truncatePath(project.Path, width-6))
+		pathLine := "    " + DimmedStyle.Render(truncatePath(instance.Path, width-6))
 		b.WriteString(pathLine)
 		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Connect  x: Stop  r: Restart  R: Refresh  ?: Config  q: Quit"))
+	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Connect  n: New Worktree  x: Stop  r: Restart  R: Refresh  ?: Config  q: Quit"))
 	b.WriteString("\n")
 	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d to return here"))
 
@@ -192,4 +193,49 @@ func getStatusIcon(status devcontainer.ContainerStatus) string {
 	default:
 		return DimmedStyle.Render("?")
 	}
+}
+
+// RenderNewWorktreeInput renders the text input for creating a new worktree
+func RenderNewWorktreeInput(projectName string, input interface{ View() string }) string {
+	var b strings.Builder
+
+	title := TitleStyle.Render("claude-quick")
+	b.WriteString(title)
+	b.WriteString("\n")
+	b.WriteString(SubtitleStyle.Render("New Git Worktree"))
+	b.WriteString("\n\n")
+
+	b.WriteString("Project: ")
+	b.WriteString(SuccessStyle.Render(projectName))
+	b.WriteString("\n\n")
+
+	b.WriteString("Enter branch name (e.g., feature-auth, bugfix-123):")
+	b.WriteString("\n\n")
+
+	b.WriteString(input.View())
+	b.WriteString("\n\n")
+
+	b.WriteString(DimmedStyle.Render("Will create worktree in sibling directory with new branch"))
+	b.WriteString("\n\n")
+	b.WriteString(HelpStyle.Render("Enter: Create  Esc: Cancel"))
+
+	return b.String()
+}
+
+// RenderCreatingWorktree renders the loading state while creating a new worktree
+func RenderCreatingWorktree(branchName string, spinnerView string) string {
+	var b strings.Builder
+
+	title := TitleStyle.Render("claude-quick")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	b.WriteString(SpinnerStyle.Render(spinnerView))
+	b.WriteString(" Creating worktree ")
+	b.WriteString(SuccessStyle.Render(branchName))
+	b.WriteString("...")
+	b.WriteString("\n\n")
+	b.WriteString(DimmedStyle.Render("Running git worktree add..."))
+
+	return b.String()
 }

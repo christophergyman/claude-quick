@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os/exec"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -34,33 +35,36 @@ const (
 	StateLoadingTmuxSessions
 	StateError
 	StateShowConfig
+	StateNewWorktreeInput // Text input for new worktree branch name
+	StateCreatingWorktree // Creating new worktree
 )
 
 // Model is the main Bubbletea model
 type Model struct {
-	state           State
-	projects        []devcontainer.Project
-	projectsStatus  []devcontainer.ProjectWithStatus
-	selectedProject *devcontainer.Project
-	tmuxSessions    []tmux.Session
-	selectedSession *tmux.Session
-	cursor          int
-	spinner         spinner.Model
-	textInput       textinput.Model
-	err             error
-	errHint         string
-	width           int
-	height          int
-	config          *config.Config
-	previousState   State
+	state            State
+	instances        []devcontainer.ContainerInstance
+	instancesStatus  []devcontainer.ContainerInstanceWithStatus
+	selectedInstance *devcontainer.ContainerInstance
+	tmuxSessions     []tmux.Session
+	selectedSession  *tmux.Session
+	cursor           int
+	spinner          spinner.Model
+	textInput        textinput.Model
+	worktreeInput    textinput.Model // For new worktree branch name input
+	err              error
+	errHint          string
+	width            int
+	height           int
+	config           *config.Config
+	previousState    State
 }
 
 // Messages for async operations
-type projectsDiscoveredMsg struct {
-	projects []devcontainer.Project
+type instancesDiscoveredMsg struct {
+	instances []devcontainer.ContainerInstance
 }
-type containerStatusRefreshedMsg struct {
-	statuses []devcontainer.ProjectWithStatus
+type instanceStatusRefreshedMsg struct {
+	statuses []devcontainer.ContainerInstanceWithStatus
 }
 type containerStartedMsg struct{}
 type containerErrorMsg struct{ err error }
@@ -71,9 +75,12 @@ type containerRestartedMsg struct{}
 type tmuxSessionStoppedMsg struct{}
 type tmuxSessionRestartedMsg struct{}
 type tmuxDetachedMsg struct{}
+type worktreeCreatedMsg struct {
+	worktreePath string
+}
 
-// New creates a new Model with discovered projects
-func New(projects []devcontainer.Project, cfg *config.Config) Model {
+// New creates a new Model with discovered instances
+func New(instances []devcontainer.ContainerInstance, cfg *config.Config) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = SpinnerStyle
@@ -83,16 +90,22 @@ func New(projects []devcontainer.Project, cfg *config.Config) Model {
 	ti.CharLimit = 50
 	ti.Width = 30
 
+	wi := textinput.New()
+	wi.Placeholder = "feature-branch"
+	wi.CharLimit = 50
+	wi.Width = 30
+
 	return Model{
-		state:     StateDashboard,
-		projects:  projects,
-		spinner:   s,
-		textInput: ti,
-		config:    cfg,
+		state:         StateDashboard,
+		instances:     instances,
+		spinner:       s,
+		textInput:     ti,
+		worktreeInput: wi,
+		config:        cfg,
 	}
 }
 
-// NewWithDiscovery creates a Model that will discover projects asynchronously
+// NewWithDiscovery creates a Model that will discover instances asynchronously
 func NewWithDiscovery(cfg *config.Config) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -103,40 +116,46 @@ func NewWithDiscovery(cfg *config.Config) Model {
 	ti.CharLimit = 50
 	ti.Width = 30
 
+	wi := textinput.New()
+	wi.Placeholder = "feature-branch"
+	wi.CharLimit = 50
+	wi.Width = 30
+
 	return Model{
-		state:     StateDiscovering,
-		projects:  nil,
-		spinner:   s,
-		textInput: ti,
-		config:    cfg,
+		state:         StateDiscovering,
+		instances:     nil,
+		spinner:       s,
+		textInput:     ti,
+		worktreeInput: wi,
+		config:        cfg,
 	}
 }
 
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	if m.state == StateDiscovering {
-		return tea.Batch(m.spinner.Tick, m.discoverProjects())
+		return tea.Batch(m.spinner.Tick, m.discoverInstances())
 	}
 	return nil
 }
 
-// discoverProjects returns a command that discovers devcontainer projects
-func (m Model) discoverProjects() tea.Cmd {
+// discoverInstances returns a command that discovers devcontainer instances
+func (m Model) discoverInstances() tea.Cmd {
 	return func() tea.Msg {
-		projects := devcontainer.Discover(
+		instances := devcontainer.DiscoverInstances(
 			m.config.SearchPaths,
 			m.config.MaxDepth,
 			m.config.ExcludedDirs,
 		)
-		return projectsDiscoveredMsg{projects: projects}
+		return instancesDiscoveredMsg{instances: instances}
 	}
 }
 
-// refreshProjectStatus returns a command that refreshes container status for all projects
-func (m Model) refreshProjectStatus() tea.Cmd {
+// refreshInstanceStatus returns a command that refreshes container status for all instances
+func (m Model) refreshInstanceStatus() tea.Cmd {
 	return func() tea.Msg {
-		statuses := devcontainer.GetAllProjectsStatus(m.projects)
-		return containerStatusRefreshedMsg{statuses: statuses}
+		statuses := devcontainer.GetAllInstancesStatus(m.instances)
+		return instanceStatusRefreshedMsg{statuses: statuses}
 	}
 }
 
@@ -156,23 +175,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 
-	case projectsDiscoveredMsg:
-		m.projects = msg.projects
+	case instancesDiscoveredMsg:
+		m.instances = msg.instances
 		m.state = StateRefreshingStatus
 		m.cursor = 0
-		return m, tea.Batch(m.spinner.Tick, m.refreshProjectStatus())
+		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
-	case containerStatusRefreshedMsg:
-		m.projectsStatus = msg.statuses
+	case instanceStatusRefreshedMsg:
+		m.instancesStatus = msg.statuses
 		m.state = StateDashboard
 		return m, nil
 
 	case tmuxDetachedMsg:
 		// User detached from tmux, return to dashboard with status refresh
 		m.state = StateRefreshingStatus
-		m.selectedProject = nil
+		m.selectedInstance = nil
 		m.cursor = 0
-		return m, tea.Batch(m.spinner.Tick, m.refreshProjectStatus())
+		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
 	case containerStartedMsg:
 		return m.handleContainerStarted()
@@ -197,8 +216,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case containerStoppedMsg, containerRestartedMsg:
 		// Refresh status after container operation
 		m.state = StateRefreshingStatus
-		m.selectedProject = nil
-		return m, tea.Batch(m.spinner.Tick, m.refreshProjectStatus())
+		m.selectedInstance = nil
+		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
 	case tmuxSessionStoppedMsg, tmuxSessionRestartedMsg:
 		// Reload tmux sessions after stop/restart with loading animation
@@ -207,12 +226,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateLoadingTmuxSessions
 		return m, tea.Batch(m.spinner.Tick, m.loadTmuxSessions())
 
+	case worktreeCreatedMsg:
+		// Worktree created, refresh instances and start the container for the new worktree
+		m.state = StateDiscovering
+		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
+
 	}
 
 	// Update text input if in input state
 	if m.state == StateNewSessionInput {
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+
+	// Update worktree input if in worktree name input state
+	if m.state == StateNewWorktreeInput {
+		var cmd tea.Cmd
+		m.worktreeInput, cmd = m.worktreeInput.Update(msg)
 		return m, cmd
 	}
 
@@ -232,6 +263,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleTmuxSelectKey(msg)
 	case StateNewSessionInput:
 		return m.handleNewSessionInputKey(msg)
+	case StateNewWorktreeInput:
+		return m.handleNewWorktreeInputKey(msg)
 	case StateError:
 		// Any key returns to container select
 		m.state = StateDashboard
@@ -256,14 +289,14 @@ func (m Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "down", "j":
-		if m.cursor < len(m.projectsStatus)-1 {
+		if m.cursor < len(m.instancesStatus)-1 {
 			m.cursor++
 		}
 
 	case "enter":
-		if len(m.projectsStatus) > 0 {
-			m.selectedProject = &m.projectsStatus[m.cursor].Project
-			if m.projectsStatus[m.cursor].Status == devcontainer.StatusRunning {
+		if len(m.instancesStatus) > 0 {
+			m.selectedInstance = &m.instancesStatus[m.cursor].ContainerInstance
+			if m.instancesStatus[m.cursor].Status == devcontainer.StatusRunning {
 				// Container is running, load tmux sessions
 				m.state = StateLoadingTmuxSessions
 				return m, tea.Batch(m.spinner.Tick, m.loadTmuxSessions())
@@ -277,21 +310,39 @@ func (m Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "x":
-		if len(m.projectsStatus) > 0 {
-			m.selectedProject = &m.projectsStatus[m.cursor].Project
+		if len(m.instancesStatus) > 0 {
+			m.selectedInstance = &m.instancesStatus[m.cursor].ContainerInstance
 			m.state = StateConfirmStop
 		}
 
 	case "r":
-		if len(m.projectsStatus) > 0 {
-			m.selectedProject = &m.projectsStatus[m.cursor].Project
+		if len(m.instancesStatus) > 0 {
+			m.selectedInstance = &m.instancesStatus[m.cursor].ContainerInstance
 			m.state = StateConfirmRestart
 		}
 
 	case "R":
 		// Manual refresh
 		m.state = StateRefreshingStatus
-		return m, tea.Batch(m.spinner.Tick, m.refreshProjectStatus())
+		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
+
+	case "n":
+		// Create new worktree - requires selecting a git project first
+		if len(m.instancesStatus) > 0 {
+			selected := &m.instancesStatus[m.cursor].ContainerInstance
+			// Only allow creating worktrees for git repositories
+			if selected.Worktree == nil {
+				m.state = StateError
+				m.err = fmt.Errorf("cannot create worktree: not a git repository")
+				m.errHint = "Press any key to go back"
+				return m, nil
+			}
+			m.selectedInstance = selected
+			m.state = StateNewWorktreeInput
+			m.worktreeInput.SetValue("")
+			m.worktreeInput.Focus()
+			return m, textinput.Blink
+		}
 
 	case "?":
 		m.previousState = m.state
@@ -310,9 +361,9 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.state = StateContainerRestarting
 		return m, tea.Batch(m.spinner.Tick, m.restartContainer())
-	case "n", "N", "esc":
+	case "N", "esc":
 		m.state = StateDashboard
-		m.selectedProject = nil
+		m.selectedInstance = nil
 		return m, nil
 	case "ctrl+c":
 		return m, tea.Quit
@@ -347,8 +398,8 @@ func (m Model) handleTmuxSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Go back to container select with status refresh
 		m.state = StateRefreshingStatus
 		m.cursor = 0
-		m.selectedProject = nil
-		return m, tea.Batch(m.spinner.Tick, m.refreshProjectStatus())
+		m.selectedInstance = nil
+		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
 	case "ctrl+c":
 		return m, tea.Quit
@@ -426,10 +477,61 @@ func (m Model) handleNewSessionInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m Model) handleNewWorktreeInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Cancel and go back to dashboard
+		m.state = StateDashboard
+		return m, nil
+
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "enter":
+		branchName := m.worktreeInput.Value()
+		if branchName == "" {
+			m.state = StateError
+			m.err = devcontainer.ValidateBranchName("")
+			m.errHint = "Press any key to go back"
+			return m, nil
+		}
+		if err := devcontainer.ValidateBranchName(branchName); err != nil {
+			m.state = StateError
+			m.err = err
+			m.errHint = "Press any key to go back"
+			return m, nil
+		}
+		m.state = StateCreatingWorktree
+		return m, tea.Batch(
+			m.spinner.Tick,
+			m.createWorktree(branchName),
+		)
+	}
+
+	// Pass other keys to text input
+	var cmd tea.Cmd
+	m.worktreeInput, cmd = m.worktreeInput.Update(msg)
+	return m, cmd
+}
+
+// createWorktree creates a new git worktree with the specified branch
+func (m Model) createWorktree(branchName string) tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedInstance == nil {
+			return containerErrorMsg{err: nil}
+		}
+		worktreePath, err := devcontainer.CreateWorktree(m.selectedInstance.Path, branchName)
+		if err != nil {
+			return containerErrorMsg{err: err}
+		}
+		return worktreeCreatedMsg{worktreePath: worktreePath}
+	}
+}
+
 // startContainer returns a command that starts the devcontainer
 func (m Model) startContainer() tea.Cmd {
 	return func() tea.Msg {
-		if m.selectedProject == nil {
+		if m.selectedInstance == nil {
 			return containerErrorMsg{err: nil}
 		}
 
@@ -438,13 +540,13 @@ func (m Model) startContainer() tea.Cmd {
 			return containerErrorMsg{err: err}
 		}
 
-		// Start the container
-		if err := devcontainer.Up(m.selectedProject.Path); err != nil {
+		// Start the container (path-based, each worktree has unique path)
+		if err := devcontainer.Up(m.selectedInstance.Path); err != nil {
 			return containerErrorMsg{err: err}
 		}
 
 		// Check if tmux is available in container
-		if !devcontainer.HasTmux(m.selectedProject.Path) {
+		if !devcontainer.HasTmux(m.selectedInstance.Path) {
 			return containerErrorMsg{err: &tmuxNotFoundError{}}
 		}
 
@@ -455,10 +557,10 @@ func (m Model) startContainer() tea.Cmd {
 // stopContainer returns a command that stops the devcontainer
 func (m Model) stopContainer() tea.Cmd {
 	return func() tea.Msg {
-		if m.selectedProject == nil {
+		if m.selectedInstance == nil {
 			return containerErrorMsg{err: nil}
 		}
-		if err := devcontainer.Stop(m.selectedProject.Path); err != nil {
+		if err := devcontainer.Stop(m.selectedInstance.Path); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return containerStoppedMsg{}
@@ -468,10 +570,10 @@ func (m Model) stopContainer() tea.Cmd {
 // restartContainer returns a command that restarts the devcontainer
 func (m Model) restartContainer() tea.Cmd {
 	return func() tea.Msg {
-		if m.selectedProject == nil {
+		if m.selectedInstance == nil {
 			return containerErrorMsg{err: nil}
 		}
-		if err := devcontainer.Restart(m.selectedProject.Path); err != nil {
+		if err := devcontainer.Restart(m.selectedInstance.Path); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return containerRestartedMsg{}
@@ -481,10 +583,10 @@ func (m Model) restartContainer() tea.Cmd {
 // stopTmuxSession returns a command that stops/kills a tmux session
 func (m Model) stopTmuxSession() tea.Cmd {
 	return func() tea.Msg {
-		if m.selectedProject == nil || m.selectedSession == nil {
+		if m.selectedInstance == nil || m.selectedSession == nil {
 			return containerErrorMsg{err: nil}
 		}
-		if err := devcontainer.KillTmuxSession(m.selectedProject.Path, m.selectedSession.Name); err != nil {
+		if err := devcontainer.KillTmuxSession(m.selectedInstance.Path, m.selectedSession.Name); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return tmuxSessionStoppedMsg{}
@@ -494,16 +596,16 @@ func (m Model) stopTmuxSession() tea.Cmd {
 // restartTmuxSession returns a command that restarts a tmux session (kill + create)
 func (m Model) restartTmuxSession() tea.Cmd {
 	return func() tea.Msg {
-		if m.selectedProject == nil || m.selectedSession == nil {
+		if m.selectedInstance == nil || m.selectedSession == nil {
 			return containerErrorMsg{err: nil}
 		}
 		sessionName := m.selectedSession.Name
 		// Kill existing session
-		if err := devcontainer.KillTmuxSession(m.selectedProject.Path, sessionName); err != nil {
+		if err := devcontainer.KillTmuxSession(m.selectedInstance.Path, sessionName); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		// Create new session with same name
-		if err := devcontainer.CreateTmuxSession(m.selectedProject.Path, sessionName); err != nil {
+		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, sessionName); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return tmuxSessionRestartedMsg{}
@@ -520,7 +622,7 @@ func (m Model) handleContainerStarted() (tea.Model, tea.Cmd) {
 // loadTmuxSessions returns a command that loads tmux sessions
 func (m Model) loadTmuxSessions() tea.Cmd {
 	return func() tea.Msg {
-		sessions, err := devcontainer.ListTmuxSessions(m.selectedProject.Path)
+		sessions, err := devcontainer.ListTmuxSessions(m.selectedInstance.Path)
 		if err != nil {
 			return containerErrorMsg{err: err}
 		}
@@ -531,7 +633,7 @@ func (m Model) loadTmuxSessions() tea.Cmd {
 // createTmuxSession creates a new tmux session in the container
 func (m Model) createTmuxSession(name string) tea.Cmd {
 	return func() tea.Msg {
-		if err := devcontainer.CreateTmuxSession(m.selectedProject.Path, name); err != nil {
+		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, name); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return tmuxSessionCreatedMsg{}
@@ -543,9 +645,10 @@ func (m Model) createTmuxSession(name string) tea.Cmd {
 func (m Model) attachToSession(sessionName string) (tea.Model, tea.Cmd) {
 	m.state = StateAttaching
 
-	// Build the command to attach to tmux
-	c := exec.Command("devcontainer", "exec", "--workspace-folder",
-		m.selectedProject.Path, "tmux", "attach", "-t", sessionName)
+	// Build the command to attach to tmux (path-based)
+	c := exec.Command("devcontainer", "exec",
+		"--workspace-folder", m.selectedInstance.Path,
+		"tmux", "attach", "-t", sessionName)
 
 	// Use tea.ExecProcess to run tmux and return to TUI when done
 	return m, tea.ExecProcess(c, func(err error) tea.Msg {
@@ -564,42 +667,42 @@ func (m Model) View() string {
 		return RenderRefreshingStatus(m.spinner.View())
 
 	case StateDashboard:
-		return RenderDashboard(m.projectsStatus, m.cursor, m.width)
+		return RenderDashboard(m.instancesStatus, m.cursor, m.width)
 
 	case StateContainerStarting:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderContainerStarting(projectName, m.spinner.View())
+		return RenderContainerStarting(instanceName, m.spinner.View())
 
 	case StateConfirmStop:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderConfirmDialog("stop", projectName)
+		return RenderConfirmDialog("stop", instanceName)
 
 	case StateConfirmRestart:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderConfirmDialog("restart", projectName)
+		return RenderConfirmDialog("restart", instanceName)
 
 	case StateContainerStopping:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderContainerOperation("Stopping", projectName, m.spinner.View())
+		return RenderContainerOperation("Stopping", instanceName, m.spinner.View())
 
 	case StateContainerRestarting:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderContainerOperation("Restarting", projectName, m.spinner.View())
+		return RenderContainerOperation("Restarting", instanceName, m.spinner.View())
 
 	case StateConfirmTmuxStop:
 		sessionName := ""
@@ -630,36 +733,47 @@ func (m Model) View() string {
 		return RenderTmuxOperation("Restarting", sessionName, m.spinner.View())
 
 	case StateLoadingTmuxSessions:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderLoadingTmuxSessions(projectName, m.spinner.View())
+		return RenderLoadingTmuxSessions(instanceName, m.spinner.View())
 
 	case StateTmuxSelect:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderTmuxSelect(projectName, m.tmuxSessions, m.cursor)
+		return RenderTmuxSelect(instanceName, m.tmuxSessions, m.cursor)
 
 	case StateNewSessionInput:
-		projectName := ""
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		instanceName := ""
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
-		return RenderNewSessionInput(projectName, m.textInput)
+		return RenderNewSessionInput(instanceName, m.textInput)
 
 	case StateAttaching:
-		projectName := ""
+		instanceName := ""
 		sessionName := m.textInput.Value()
-		if m.selectedProject != nil {
-			projectName = m.selectedProject.Name
+		if m.selectedInstance != nil {
+			instanceName = m.selectedInstance.DisplayName()
 		}
 		if m.cursor < len(m.tmuxSessions) {
 			sessionName = m.tmuxSessions[m.cursor].Name
 		}
-		return RenderAttaching(projectName, sessionName, m.spinner.View())
+		return RenderAttaching(instanceName, sessionName, m.spinner.View())
+
+	case StateNewWorktreeInput:
+		projectName := ""
+		if m.selectedInstance != nil {
+			projectName = m.selectedInstance.Name
+		}
+		return RenderNewWorktreeInput(projectName, m.worktreeInput)
+
+	case StateCreatingWorktree:
+		branchName := m.worktreeInput.Value()
+		return RenderCreatingWorktree(branchName, m.spinner.View())
 
 	case StateError:
 		return RenderError(m.err, m.errHint)

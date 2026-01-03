@@ -18,6 +18,15 @@ type Project struct {
 	Path string // Full path to the project (workspace folder)
 }
 
+// WorktreeInfo represents a git worktree
+type WorktreeInfo struct {
+	Path     string // Worktree directory path
+	Branch   string // Current branch name
+	MainRepo string // Path to main repository
+	GitDir   string // Path to worktree gitdir (.git/worktrees/<name>)
+	IsMain   bool   // True if this is the main worktree
+}
+
 // ContainerStatus represents the runtime status of a devcontainer
 type ContainerStatus string
 
@@ -33,6 +42,30 @@ type ProjectWithStatus struct {
 	Status       ContainerStatus
 	ContainerID  string
 	SessionCount int
+}
+
+// ContainerInstance represents a specific devcontainer instance
+// Each instance corresponds to a main repo or a git worktree
+type ContainerInstance struct {
+	Project              // Embedded: Name and Path (workspace folder)
+	ConfigPath string    // Full path to devcontainer.json (from main repo)
+	Worktree   *WorktreeInfo // Worktree info (nil for main repo if not a worktree)
+}
+
+// ContainerInstanceWithStatus extends ContainerInstance with runtime info
+type ContainerInstanceWithStatus struct {
+	ContainerInstance
+	Status       ContainerStatus
+	ContainerID  string
+	SessionCount int
+}
+
+// DisplayName returns the formatted name for UI display
+func (c ContainerInstance) DisplayName() string {
+	if c.Worktree != nil && !c.Worktree.IsMain {
+		return c.Name + " [" + c.Worktree.Branch + "]"
+	}
+	return c.Name
 }
 
 // Discover finds all devcontainer projects in the given search paths
@@ -97,6 +130,272 @@ func Discover(searchPaths []string, maxDepth int, excludedDirs []string) []Proje
 	}
 
 	return projects
+}
+
+// IsGitWorktree checks if the given path is a git worktree and returns its info
+// Returns nil if the path is not a git worktree or not a git repository
+func IsGitWorktree(path string) *WorktreeInfo {
+	gitPath := filepath.Join(path, ".git")
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return nil // Not a git repository
+	}
+
+	if info.IsDir() {
+		// It's a regular git repository (main worktree)
+		// Get the current branch
+		branch := getGitBranch(path)
+		return &WorktreeInfo{
+			Path:     path,
+			Branch:   branch,
+			MainRepo: path,
+			GitDir:   gitPath,
+			IsMain:   true,
+		}
+	}
+
+	// .git is a file - this is a worktree
+	// Read the gitdir from the file
+	content, err := os.ReadFile(gitPath)
+	if err != nil {
+		return nil
+	}
+
+	// Parse: "gitdir: /path/to/.git/worktrees/name"
+	line := strings.TrimSpace(string(content))
+	if !strings.HasPrefix(line, "gitdir: ") {
+		return nil
+	}
+	gitDir := strings.TrimPrefix(line, "gitdir: ")
+
+	// Find the main repo (go up from .git/worktrees/<name> to .git, then parent)
+	// gitDir is like /path/to/main/.git/worktrees/feature-x
+	mainGitDir := filepath.Dir(filepath.Dir(gitDir)) // Go up to .git
+	mainRepo := filepath.Dir(mainGitDir)             // Go up to main repo
+
+	branch := getGitBranch(path)
+
+	return &WorktreeInfo{
+		Path:     path,
+		Branch:   branch,
+		MainRepo: mainRepo,
+		GitDir:   gitDir,
+		IsMain:   false,
+	}
+}
+
+// getGitBranch returns the current branch name for a git repository
+func getGitBranch(repoPath string) string {
+	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// ListWorktrees returns all worktrees for a repository (including the main one)
+func ListWorktrees(repoPath string) ([]WorktreeInfo, error) {
+	// Run git worktree list --porcelain
+	cmd := exec.Command("git", "-C", repoPath, "worktree", "list", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worktrees: %v", err)
+	}
+
+	var worktrees []WorktreeInfo
+	var current WorktreeInfo
+	isFirst := true
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if current.Path != "" {
+				current.IsMain = isFirst
+				if current.IsMain {
+					current.MainRepo = current.Path
+					current.GitDir = filepath.Join(current.Path, ".git")
+				} else {
+					current.MainRepo = repoPath
+					// GitDir for non-main worktrees
+					worktreeName := filepath.Base(current.Path)
+					current.GitDir = filepath.Join(repoPath, ".git", "worktrees", worktreeName)
+				}
+				worktrees = append(worktrees, current)
+				isFirst = false
+			}
+			current = WorktreeInfo{}
+			continue
+		}
+
+		if strings.HasPrefix(line, "worktree ") {
+			current.Path = strings.TrimPrefix(line, "worktree ")
+		} else if strings.HasPrefix(line, "branch refs/heads/") {
+			current.Branch = strings.TrimPrefix(line, "branch refs/heads/")
+		} else if strings.HasPrefix(line, "HEAD ") {
+			// Detached HEAD - use short SHA as branch name
+			if current.Branch == "" {
+				sha := strings.TrimPrefix(line, "HEAD ")
+				if len(sha) > 7 {
+					current.Branch = sha[:7]
+				} else {
+					current.Branch = sha
+				}
+			}
+		}
+	}
+
+	// Handle last worktree if no trailing newline
+	if current.Path != "" {
+		current.IsMain = isFirst
+		if current.IsMain {
+			current.MainRepo = current.Path
+			current.GitDir = filepath.Join(current.Path, ".git")
+		} else {
+			current.MainRepo = repoPath
+			worktreeName := filepath.Base(current.Path)
+			current.GitDir = filepath.Join(repoPath, ".git", "worktrees", worktreeName)
+		}
+		worktrees = append(worktrees, current)
+	}
+
+	return worktrees, nil
+}
+
+// GetMainRepo finds the main repository path from any worktree path
+func GetMainRepo(worktreePath string) (string, error) {
+	info := IsGitWorktree(worktreePath)
+	if info == nil {
+		return "", fmt.Errorf("not a git repository or worktree")
+	}
+	return info.MainRepo, nil
+}
+
+// DiscoverInstances finds all devcontainer instances in the given search paths
+// For each project with a devcontainer.json, it finds all git worktrees
+// and adds each worktree as a separate instance
+func DiscoverInstances(searchPaths []string, maxDepth int, excludedDirs []string) []ContainerInstance {
+	var instances []ContainerInstance
+	seenProjects := make(map[string]bool)  // Track main repos we've processed
+	seenWorktrees := make(map[string]bool) // Track worktree paths to deduplicate
+
+	// Build exclusion set for O(1) lookup
+	excludeSet := make(map[string]bool, len(excludedDirs))
+	for _, dir := range excludedDirs {
+		excludeSet[dir] = true
+	}
+
+	for _, searchPath := range searchPaths {
+		filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil // Skip directories we can't read
+			}
+
+			// Skip hidden directories (except .devcontainer)
+			if d.IsDir() && strings.HasPrefix(d.Name(), ".") && d.Name() != ".devcontainer" {
+				return fs.SkipDir
+			}
+
+			// Skip excluded directories
+			if d.IsDir() && excludeSet[d.Name()] {
+				return fs.SkipDir
+			}
+
+			// Check depth
+			relPath, _ := filepath.Rel(searchPath, path)
+			depth := strings.Count(relPath, string(os.PathSeparator))
+			if depth > maxDepth {
+				return fs.SkipDir
+			}
+
+			// Look for devcontainer.json (only in .devcontainer/ folder, not named configs)
+			if d.Name() == "devcontainer.json" {
+				dir := filepath.Dir(path)
+
+				// Only accept .devcontainer/devcontainer.json pattern
+				if filepath.Base(dir) != ".devcontainer" {
+					return nil
+				}
+
+				projectPath := filepath.Dir(dir)
+				configPath := path
+
+				// Check if this is a git repo/worktree
+				wtInfo := IsGitWorktree(projectPath)
+				if wtInfo == nil {
+					// Not a git repo - just add as a single instance without worktree info
+					if !seenWorktrees[projectPath] {
+						seenWorktrees[projectPath] = true
+						instances = append(instances, ContainerInstance{
+							Project: Project{
+								Name: filepath.Base(projectPath),
+								Path: projectPath,
+							},
+							ConfigPath: configPath,
+							Worktree:   nil,
+						})
+					}
+					return nil
+				}
+
+				// Get the main repo path
+				mainRepo := wtInfo.MainRepo
+				if seenProjects[mainRepo] {
+					return nil // Already processed this project and its worktrees
+				}
+				seenProjects[mainRepo] = true
+
+				// Find devcontainer.json in main repo (for worktrees to share)
+				mainConfigPath := filepath.Join(mainRepo, ".devcontainer", "devcontainer.json")
+				if _, err := os.Stat(mainConfigPath); err != nil {
+					// Fall back to discovered config path
+					mainConfigPath = configPath
+				}
+
+				// List all worktrees for this repository
+				worktrees, err := ListWorktrees(mainRepo)
+				if err != nil {
+					// If we can't list worktrees, just add the discovered path
+					if !seenWorktrees[projectPath] {
+						seenWorktrees[projectPath] = true
+						instances = append(instances, ContainerInstance{
+							Project: Project{
+								Name: filepath.Base(projectPath),
+								Path: projectPath,
+							},
+							ConfigPath: mainConfigPath,
+							Worktree:   wtInfo,
+						})
+					}
+					return nil
+				}
+
+				// Add each worktree as a separate instance
+				for _, wt := range worktrees {
+					if seenWorktrees[wt.Path] {
+						continue
+					}
+					seenWorktrees[wt.Path] = true
+
+					// Copy worktree info
+					wtCopy := wt
+					instances = append(instances, ContainerInstance{
+						Project: Project{
+							Name: filepath.Base(mainRepo), // Use main repo name for all
+							Path: wt.Path,
+						},
+						ConfigPath: mainConfigPath,
+						Worktree:   &wtCopy,
+					})
+				}
+			}
+
+			return nil
+		})
+	}
+
+	return instances
 }
 
 // CheckCLI verifies the devcontainer CLI is installed
@@ -231,6 +530,41 @@ func GetAllProjectsStatus(projects []Project) []ProjectWithStatus {
 	return result
 }
 
+// GetAllInstancesStatus returns all instances with their current Docker status
+func GetAllInstancesStatus(instances []ContainerInstance) []ContainerInstanceWithStatus {
+	result := make([]ContainerInstanceWithStatus, len(instances))
+	var wg sync.WaitGroup
+
+	for i, inst := range instances {
+		wg.Add(1)
+		go func(idx int, instance ContainerInstance) {
+			defer wg.Done()
+
+			// Use path-based status check since each worktree has a unique path
+			status, containerID := GetContainerStatus(instance.Path)
+			sessionCount := 0
+
+			// Only count sessions if container is running
+			if status == StatusRunning {
+				sessions, err := ListTmuxSessions(instance.Path)
+				if err == nil {
+					sessionCount = len(sessions)
+				}
+			}
+
+			result[idx] = ContainerInstanceWithStatus{
+				ContainerInstance: instance,
+				Status:            status,
+				ContainerID:       containerID,
+				SessionCount:      sessionCount,
+			}
+		}(i, inst)
+	}
+
+	wg.Wait()
+	return result
+}
+
 // ExecInteractive executes a command inside the devcontainer interactively
 // This replaces the current process with the devcontainer exec
 func ExecInteractive(projectPath string, args []string) error {
@@ -302,6 +636,94 @@ func KillTmuxSession(projectPath, sessionName string) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to kill tmux session: %s", stderr.String())
+	}
+	return nil
+}
+
+// CreateWorktree creates a new git worktree with a new branch
+// Returns the path to the new worktree directory
+func CreateWorktree(repoPath, branchName string) (string, error) {
+	// Validate branch name
+	if err := ValidateBranchName(branchName); err != nil {
+		return "", err
+	}
+
+	// Check if this is a git repository
+	wtInfo := IsGitWorktree(repoPath)
+	if wtInfo == nil {
+		return "", fmt.Errorf("not a git repository")
+	}
+
+	// Get the main repo path
+	mainRepo := wtInfo.MainRepo
+
+	// Create worktree path as sibling directory: repo-branchname
+	repoName := filepath.Base(mainRepo)
+	worktreePath := filepath.Join(filepath.Dir(mainRepo), repoName+"-"+branchName)
+
+	// Check if worktree already exists
+	if _, err := os.Stat(worktreePath); err == nil {
+		return "", fmt.Errorf("worktree directory already exists: %s", worktreePath)
+	}
+
+	// Create the worktree with a new branch
+	cmd := exec.Command("git", "-C", mainRepo, "worktree", "add", "-b", branchName, worktreePath)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to create worktree: %s", stderr.String())
+	}
+
+	return worktreePath, nil
+}
+
+// RemoveWorktree removes a git worktree
+func RemoveWorktree(worktreePath string) error {
+	wtInfo := IsGitWorktree(worktreePath)
+	if wtInfo == nil {
+		return fmt.Errorf("not a git worktree")
+	}
+
+	if wtInfo.IsMain {
+		return fmt.Errorf("cannot remove the main worktree")
+	}
+
+	// Remove the worktree
+	cmd := exec.Command("git", "-C", wtInfo.MainRepo, "worktree", "remove", worktreePath)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to remove worktree: %s", stderr.String())
+	}
+
+	return nil
+}
+
+// ValidateBranchName checks if a branch name is valid for git
+func ValidateBranchName(name string) error {
+	if name == "" {
+		return fmt.Errorf("branch name cannot be empty")
+	}
+	if name == "main" || name == "master" {
+		return fmt.Errorf("'%s' is a reserved branch name", name)
+	}
+	// Git branch name rules (simplified)
+	if strings.HasPrefix(name, "-") {
+		return fmt.Errorf("branch name cannot start with '-'")
+	}
+	if strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
+		return fmt.Errorf("branch name cannot start or end with '.'")
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("branch name cannot contain '..'")
+	}
+	// Only allow alphanumeric, hyphen, underscore, slash for hierarchical branches
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '/') {
+			return fmt.Errorf("branch name contains invalid character: %c", r)
+		}
 	}
 	return nil
 }
