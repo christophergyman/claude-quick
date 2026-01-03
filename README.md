@@ -156,6 +156,23 @@ By default, the following directories are skipped during scanning:
 
 Without a configuration file, Claude Quick searches your home directory with a max depth of 3.
 
+## Nerd Font Support for Claude CLI
+
+If you're using [Claude Code](https://claude.com/claude-code) inside your devcontainers, you'll need to configure your devcontainer for proper Nerd Font rendering. Without this, Unicode glyphs (like the Claude logo) won't display correctly.
+
+Add the following to your `devcontainer.json`:
+
+```json
+{
+  "containerEnv": {
+    "TERM": "xterm-256color",
+    "LANG": "en_US.UTF-8"
+  }
+}
+```
+
+**Why is this needed?** The terminal is rendered by your host machine (which has Nerd Fonts installed), but applications inside the container need `LANG=en_US.UTF-8` to know they can output UTF-8/Unicode characters.
+
 ## How It Works
 
 1. Scans configured paths for `devcontainer.json` files (skips hidden directories, node_modules, vendor, etc.)
