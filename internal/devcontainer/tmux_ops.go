@@ -83,10 +83,14 @@ func readCredentialFile(projectPath string) map[string]string {
 				name := line[:idx]
 				value := line[idx+1:]
 
-				// Remove surrounding quotes
-				value = strings.Trim(value, "'\"")
+				// Remove only the outermost quotes (not all leading/trailing quote chars)
+				// strings.Trim would remove ALL matching chars, corrupting escaped values
+				if len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' {
+					value = value[1 : len(value)-1]
+				}
 
-				// Handle escaped single quotes ('\"'\"')
+				// Handle escaped single quotes: 'val'"'"'ue' -> val'ue
+				// The pattern '\"'\"' is shell escaping for a literal single quote
 				value = strings.ReplaceAll(value, "'\"'\"'", "'")
 
 				result[name] = value
