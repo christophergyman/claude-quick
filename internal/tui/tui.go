@@ -567,7 +567,12 @@ func (m Model) deleteWorktree() tea.Cmd {
 		if m.selectedInstance == nil {
 			return containerErrorMsg{err: fmt.Errorf("no worktree selected")}
 		}
-		if err := devcontainer.RemoveWorktree(m.selectedInstance.Path); err != nil {
+		// Pass main repo path to handle cases where worktree directory was deleted externally
+		var mainRepoPath string
+		if m.selectedInstance.Worktree != nil {
+			mainRepoPath = m.selectedInstance.Worktree.MainRepo
+		}
+		if err := devcontainer.RemoveWorktree(m.selectedInstance.Path, mainRepoPath); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return worktreeDeletedMsg{}

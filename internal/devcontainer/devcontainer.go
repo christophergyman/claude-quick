@@ -679,22 +679,43 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 }
 
 // RemoveWorktree removes a git worktree
-func RemoveWorktree(worktreePath string) error {
+// If mainRepoPath is provided, it will be used when the worktree directory doesn't exist
+func RemoveWorktree(worktreePath string, mainRepoPath ...string) error {
+	// Stop any running Docker container for this worktree first
+	// We attempt this regardless of whether the directory exists
+	_ = Stop(worktreePath) // Ignore error - container may not be running
+
 	wtInfo := IsGitWorktree(worktreePath)
-	if wtInfo == nil {
-		return fmt.Errorf("not a git worktree")
+
+	var mainRepo string
+	if wtInfo != nil {
+		// Directory exists and is a valid worktree
+		if wtInfo.IsMain {
+			return fmt.Errorf("cannot remove the main worktree")
+		}
+		mainRepo = wtInfo.MainRepo
+	} else {
+		// Directory doesn't exist or is not a valid worktree
+		// Try to use provided mainRepoPath
+		if len(mainRepoPath) > 0 && mainRepoPath[0] != "" {
+			mainRepo = mainRepoPath[0]
+		} else {
+			return fmt.Errorf("not a git worktree")
+		}
 	}
 
-	if wtInfo.IsMain {
-		return fmt.Errorf("cannot remove the main worktree")
-	}
-
-	// Remove the worktree
-	cmd := exec.Command("git", "-C", wtInfo.MainRepo, "worktree", "remove", worktreePath)
+	// Remove the worktree using --force flag to handle missing directories
+	cmd := exec.Command("git", "-C", mainRepo, "worktree", "remove", "--force", worktreePath)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		// If removal failed, try pruning stale worktrees
+		pruneCmd := exec.Command("git", "-C", mainRepo, "worktree", "prune")
+		if pruneErr := pruneCmd.Run(); pruneErr == nil {
+			// Pruning succeeded, check if the worktree was cleaned up
+			return nil
+		}
 		return fmt.Errorf("failed to remove worktree: %s", stderr.String())
 	}
 
