@@ -73,7 +73,7 @@ func resolveCredential(cred Credential) (string, error) {
 	case SourceFile:
 		return resolveFileSource(cred.Value)
 	case SourceEnv:
-		return resolveEnvSource(cred.Value), nil
+		return resolveEnvSource(cred.Value)
 	case SourceCommand:
 		return resolveCommandSource(cred.Value)
 	default:
@@ -92,8 +92,13 @@ func resolveFileSource(path string) (string, error) {
 }
 
 // resolveEnvSource reads a credential from an environment variable.
-func resolveEnvSource(name string) string {
-	return os.Getenv(name)
+// Returns an error if the environment variable is not set.
+func resolveEnvSource(name string) (string, error) {
+	value, exists := os.LookupEnv(name)
+	if !exists {
+		return "", fmt.Errorf("environment variable %s is not set", name)
+	}
+	return value, nil
 }
 
 // resolveCommandSource runs a command and returns its output as the credential.
