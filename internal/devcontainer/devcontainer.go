@@ -410,7 +410,18 @@ func CheckCLI() error {
 // Up starts the devcontainer for a project
 // Returns error if it fails
 func Up(projectPath string) error {
-	cmd := exec.Command("devcontainer", "up", "--workspace-folder", projectPath)
+	args := []string{"up", "--workspace-folder", projectPath}
+
+	// For worktrees, mount the main repo's .git directory at the expected host path
+	// This allows git to find the gitdir referenced in the worktree's .git file
+	wtInfo := IsGitWorktree(projectPath)
+	if wtInfo != nil && !wtInfo.IsMain {
+		mainGitDir := filepath.Join(wtInfo.MainRepo, ".git")
+		args = append(args, "--mount",
+			fmt.Sprintf("type=bind,source=%s,target=%s", mainGitDir, mainGitDir))
+	}
+
+	cmd := exec.Command("devcontainer", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
