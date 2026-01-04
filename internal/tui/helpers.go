@@ -5,7 +5,7 @@ import "strings"
 // renderSpinnerAction renders a spinner with an action message
 // Format: [spinner] [action] [name (optional)]...
 func renderSpinnerAction(spinnerView, action, name string) string {
-	b := renderWithHeader("")
+	b := renderSimpleHeader("")
 	b.WriteString(SpinnerStyle.Render(spinnerView))
 	b.WriteString(" ")
 	b.WriteString(action)
@@ -19,7 +19,8 @@ func renderSpinnerAction(spinnerView, action, name string) string {
 
 // renderSpinnerWithHint renders a spinner action with an additional hint line
 // Format: [spinner] [action] [name (optional)]...
-//         [hint]
+//
+//	[hint]
 func renderSpinnerWithHint(spinnerView, action, name, hint string) string {
 	var b strings.Builder
 	b.WriteString(renderSpinnerAction(spinnerView, action, name))
@@ -29,4 +30,3 @@ func renderSpinnerWithHint(spinnerView, action, name, hint string) string {
 	}
 	return b.String()
 }
-

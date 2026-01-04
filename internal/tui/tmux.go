@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/christophergyman/claude-quick/internal/tmux"
 )
 
@@ -11,13 +13,28 @@ const newSessionOption = "[+ New Session]"
 
 // RenderTmuxSelect renders the tmux session selection view
 func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, authWarning string) string {
-	b := renderWithHeader("tmux Sessions in: " + projectName)
+	width := defaultWidth
+
+	var b strings.Builder
+
+	// Bordered header
+	b.WriteString(RenderBorderedHeader("claude-quick", "tmux Sessions: "+projectName, width))
+	b.WriteString("\n\n")
 
 	// Show auth warning if present
 	if authWarning != "" {
 		b.WriteString(WarningStyle.Render("Auth warning: " + authWarning))
 		b.WriteString("\n\n")
 	}
+
+	// Column headers
+	sessionHeader := ColumnHeaderStyle.Render("SESSIONS")
+	b.WriteString("  " + sessionHeader)
+	b.WriteString("\n")
+
+	// Separator line
+	b.WriteString("  " + RenderSeparator(width-4))
+	b.WriteString("\n")
 
 	// Render sessions
 	for i, session := range sessions {
@@ -43,23 +60,56 @@ func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, a
 	b.WriteString(newSessionLine)
 	b.WriteString("\n")
 
+	// Footer section
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Select  x: Stop  r: Restart  ?: Config  q: Back"))
+	b.WriteString("  " + RenderSeparator(width-4))
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d to return to dashboard"))
+
+	// Key bindings - first row
+	keybindings1 := fmt.Sprintf("  %s  %s  %s  %s",
+		RenderKeyBinding("↑↓", "navigate"),
+		RenderKeyBinding("enter", "select"),
+		RenderKeyBinding("x", "stop"),
+		RenderKeyBinding("r", "restart"),
+	)
+	b.WriteString(keybindings1)
+	b.WriteString("\n")
+
+	// Key bindings - second row with right-aligned detach hint
+	leftKeys := fmt.Sprintf("  %s  %s",
+		RenderKeyBinding("?", "config"),
+		RenderKeyBinding("q", "back"),
+	)
+	rightKey := RenderKeyBinding("ctrl+b d", "detach")
+	// Calculate spacing for right alignment
+	leftWidth := lipgloss.Width(leftKeys)
+	rightWidth := lipgloss.Width(rightKey)
+	footerSpacing := width - leftWidth - rightWidth - 2
+	if footerSpacing < 1 {
+		footerSpacing = 1
+	}
+	b.WriteString(leftKeys + repeatChar(" ", footerSpacing) + rightKey)
 
 	return b.String()
 }
 
 // RenderNewSessionInput renders the text input view for new session name
 func RenderNewSessionInput(projectName string, ti textinput.Model) string {
-	b := renderWithHeader("New Session in: " + projectName)
-	b.WriteString("Enter session name:\n\n")
+	b := renderWithHeader("New Session: " + projectName)
+	b.WriteString("Enter session name:")
+	b.WriteString("\n\n")
 	b.WriteString(ti.View())
 	b.WriteString("\n\n")
-	b.WriteString(HelpStyle.Render("Enter: Create  Esc: Cancel"))
+
+	// Footer
+	b.WriteString(RenderSeparator(defaultWidth - 4))
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d to return to dashboard"))
+	keybindings := fmt.Sprintf("%s  %s",
+		RenderKeyBinding("enter", "create"),
+		RenderKeyBinding("esc", "cancel"),
+	)
+	b.WriteString(keybindings)
+
 	return b.String()
 }
 
@@ -70,11 +120,7 @@ func RenderAttaching(projectName, sessionName, spinnerView string) string {
 
 // RenderLoadingTmuxSessions renders the loading state while fetching tmux sessions
 func RenderLoadingTmuxSessions(projectName, spinnerView string) string {
-	var b strings.Builder
-	b.WriteString(TitleStyle.Render("claude-quick"))
-	b.WriteString("\n")
-	b.WriteString(SubtitleStyle.Render("Project: " + projectName))
-	b.WriteString("\n\n")
+	b := renderSimpleHeader("Project: " + projectName)
 	b.WriteString(SpinnerStyle.Render(spinnerView))
 	b.WriteString(" Loading tmux sessions...")
 	return b.String()

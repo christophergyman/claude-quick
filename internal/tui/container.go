@@ -9,28 +9,26 @@ import (
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
 )
 
-// renderWithHeader creates a strings.Builder with the standard title header
-// Includes mascot alongside title. If subtitle is provided, it's also rendered.
+const defaultWidth = 65
+
+// renderWithHeader creates a strings.Builder with the bordered header
 func renderWithHeader(subtitle string) *strings.Builder {
 	var b strings.Builder
-
-	// Create side-by-side layout: mascot | title
-	mascot := RenderMascot()
-	titleBlock := TitleStyle.Render("claude-quick")
-	if subtitle != "" {
-		titleBlock += "\n" + SubtitleStyle.Render(subtitle)
-	}
-
-	// Use lipgloss.JoinHorizontal for layout
-	header := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		mascot,
-		"  ", // spacing
-		titleBlock,
-	)
-
-	b.WriteString(header)
+	b.WriteString(RenderBorderedHeader("claude-quick", subtitle, defaultWidth))
 	b.WriteString("\n\n")
+	return &b
+}
+
+// renderSimpleHeader creates a header without the bordered box (for spinner views)
+func renderSimpleHeader(subtitle string) *strings.Builder {
+	var b strings.Builder
+	b.WriteString(TitleStyle.Render("claude-quick"))
+	b.WriteString("\n")
+	if subtitle != "" {
+		b.WriteString(SubtitleStyle.Render(subtitle))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
 	return &b
 }
 
@@ -79,7 +77,7 @@ func RenderConfirmDialog(operation, projectName string) string {
 // renderOperation renders a generic spinner operation view
 // entityType is optional and appears before the name (e.g., "session" for tmux)
 func renderOperation(operation, entityType, name, spinnerView string) string {
-	b := renderWithHeader("")
+	b := renderSimpleHeader("")
 	b.WriteString(SpinnerStyle.Render(spinnerView))
 	if entityType != "" {
 		b.WriteString(fmt.Sprintf(" %s %s ", operation, entityType))
@@ -119,7 +117,15 @@ func RenderRefreshingStatus(spinnerView string) string {
 
 // RenderDashboard renders the container dashboard with status indicators
 func RenderDashboard(instances []devcontainer.ContainerInstanceWithStatus, cursor int, width int) string {
-	b := renderWithHeader("Container Dashboard")
+	if width <= 0 {
+		width = defaultWidth
+	}
+
+	var b strings.Builder
+
+	// Bordered header
+	b.WriteString(RenderBorderedHeader("claude-quick", "Container Dashboard", width))
+	b.WriteString("\n\n")
 
 	if len(instances) == 0 {
 		b.WriteString(ErrorStyle.Render("No devcontainer projects found."))
@@ -130,51 +136,120 @@ func RenderDashboard(instances []devcontainer.ContainerInstanceWithStatus, curso
 		return b.String()
 	}
 
+	// Column headers
+	projectHeader := ColumnHeaderStyle.Render("PROJECTS")
+	statusHeader := ColumnHeaderStyle.Render("STATUS")
+	// Calculate spacing for right-aligned STATUS header
+	statusWidth := lipgloss.Width(statusHeader)
+	headerSpacing := width - 4 - lipgloss.Width(projectHeader) - statusWidth
+	if headerSpacing < 1 {
+		headerSpacing = 1
+	}
+	b.WriteString("  " + projectHeader + repeatChar(" ", headerSpacing) + statusHeader)
+	b.WriteString("\n")
+
+	// Separator line
+	b.WriteString("  " + RenderSeparator(width-4))
+	b.WriteString("\n")
+
+	// Render each project
 	for i, instance := range instances {
-		// Status indicator
-		statusIcon := getStatusIcon(instance.Status)
+		// Get status indicator with text
+		statusText := getStatusText(instance.Status)
+		statusWidth := lipgloss.Width(statusText)
 
 		// Session info for running containers
 		sessionInfo := ""
 		if instance.Status == devcontainer.StatusRunning && instance.SessionCount > 0 {
-			sessionInfo = fmt.Sprintf(" [%d sessions]", instance.SessionCount)
+			sessionInfo = fmt.Sprintf(" [%d]", instance.SessionCount)
 		}
 
-		// Use DisplayName() to show instance name (e.g., "project (claude1)")
-		display := fmt.Sprintf("%s %s%s", statusIcon, instance.DisplayName(), sessionInfo)
+		// Project name
+		displayName := instance.DisplayName() + sessionInfo
 
+		// Calculate spacing for right alignment
+		nameWidth := lipgloss.Width(displayName)
+		spacing := width - 4 - nameWidth - statusWidth
+		if spacing < 1 {
+			spacing = 1
+		}
+
+		// Render project line
 		var line string
 		if i == cursor {
-			line = Cursor() + SelectedStyle.Render(display)
+			line = Cursor() + SelectedStyle.Render(displayName) + repeatChar(" ", spacing) + statusText
 		} else {
-			line = NoCursor() + ItemStyle.Render(display)
+			line = NoCursor() + ItemStyle.Render(displayName) + repeatChar(" ", spacing) + statusText
 		}
 		b.WriteString(line)
 		b.WriteString("\n")
 
-		// Show path on next line (dimmed)
+		// Show path on next line (dimmed, indented)
 		pathLine := "    " + DimmedStyle.Render(truncatePath(instance.Path, width-constants.PathTruncatePadding))
 		b.WriteString(pathLine)
 		b.WriteString("\n")
+
+		// Add spacing between entries except for the last one
+		if i < len(instances)-1 {
+			b.WriteString("\n")
+		}
 	}
 
+	// Footer section
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("↑/↓: Navigate  Enter: Connect  n: New Worktree  d: Delete Worktree"))
+	b.WriteString("  " + RenderSeparator(width-4))
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("x: Stop  r: Restart  R: Refresh  ?: Config  q: Quit"))
+
+	// Key bindings - first row
+	keybindings1 := fmt.Sprintf("  %s  %s  %s  %s  %s  %s",
+		RenderKeyBinding("↑↓", "navigate"),
+		RenderKeyBinding("enter", "connect"),
+		RenderKeyBinding("n", "new"),
+		RenderKeyBinding("d", "delete"),
+		RenderKeyBinding("x", "stop"),
+		RenderKeyBinding("r", "restart"),
+	)
+	b.WriteString(keybindings1)
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("Tip: Detach from tmux with Ctrl+b d to return here"))
+
+	// Key bindings - second row with right-aligned detach hint
+	leftKeys := fmt.Sprintf("  %s  %s  %s",
+		RenderKeyBinding("R", "refresh"),
+		RenderKeyBinding("?", "config"),
+		RenderKeyBinding("q", "quit"),
+	)
+	rightKey := RenderKeyBinding("ctrl+b d", "detach")
+	// Calculate spacing for right alignment
+	leftWidth := lipgloss.Width(leftKeys)
+	rightWidth := lipgloss.Width(rightKey)
+	footerSpacing := width - leftWidth - rightWidth - 2
+	if footerSpacing < 1 {
+		footerSpacing = 1
+	}
+	b.WriteString(leftKeys + repeatChar(" ", footerSpacing) + rightKey)
 
 	return b.String()
 }
 
-// getStatusIcon returns a visual indicator for container status
+// getStatusText returns a visual indicator with text label for container status
+func getStatusText(status devcontainer.ContainerStatus) string {
+	switch status {
+	case devcontainer.StatusRunning:
+		return StatusRunning.Render("● running")
+	case devcontainer.StatusStopped:
+		return StatusStopped.Render("○ stopped")
+	default:
+		return StatusUnknown.Render("? unknown")
+	}
+}
+
+// getStatusIcon returns just the icon (for backward compatibility)
 func getStatusIcon(status devcontainer.ContainerStatus) string {
 	switch status {
 	case devcontainer.StatusRunning:
 		return SuccessStyle.Render("●")
 	case devcontainer.StatusStopped:
-		return ErrorStyle.Render("○")
+		return WarningStyle.Render("○")
 	default:
 		return DimmedStyle.Render("?")
 	}

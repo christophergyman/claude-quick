@@ -15,8 +15,12 @@ func RenderConfigDisplay(cfg *config.Config) string {
 	b.WriteString(config.ConfigPath())
 	b.WriteString("\n\n")
 
+	// Section separator
+	b.WriteString("  " + RenderSeparator(defaultWidth-4))
+	b.WriteString("\n\n")
+
 	// Search Paths
-	b.WriteString(SuccessStyle.Render("Search Paths:"))
+	b.WriteString(ColumnHeaderStyle.Render("Search Paths"))
 	b.WriteString("\n")
 	for _, p := range cfg.SearchPaths {
 		b.WriteString("  " + p + "\n")
@@ -24,12 +28,12 @@ func RenderConfigDisplay(cfg *config.Config) string {
 	b.WriteString("\n")
 
 	// Max Depth
-	b.WriteString(SuccessStyle.Render("Max Depth: "))
+	b.WriteString(ColumnHeaderStyle.Render("Max Depth: "))
 	b.WriteString(fmt.Sprintf("%d", cfg.MaxDepth))
 	b.WriteString("\n\n")
 
 	// Excluded Dirs (show all)
-	b.WriteString(SuccessStyle.Render("Excluded Dirs:"))
+	b.WriteString(ColumnHeaderStyle.Render("Excluded Dirs"))
 	b.WriteString("\n")
 	for _, d := range cfg.ExcludedDirs {
 		b.WriteString("  " + DimmedStyle.Render(d) + "\n")
@@ -37,16 +41,19 @@ func RenderConfigDisplay(cfg *config.Config) string {
 	b.WriteString("\n")
 
 	// Default Session Name
-	b.WriteString(SuccessStyle.Render("Default Session: "))
+	b.WriteString(ColumnHeaderStyle.Render("Default Session: "))
 	b.WriteString(cfg.DefaultSessionName)
 	b.WriteString("\n\n")
 
 	// Container Timeout
-	b.WriteString(SuccessStyle.Render("Container Timeout: "))
+	b.WriteString(ColumnHeaderStyle.Render("Container Timeout: "))
 	b.WriteString(fmt.Sprintf("%ds", cfg.ContainerTimeout))
 	b.WriteString("\n\n")
 
-	b.WriteString(HelpStyle.Render("Press any key to return"))
+	// Footer
+	b.WriteString("  " + RenderSeparator(defaultWidth-4))
+	b.WriteString("\n")
+	b.WriteString(RenderKeyBinding("any key", "return"))
 
 	return b.String()
 }
