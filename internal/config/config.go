@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/constants"
 	"gopkg.in/yaml.v3"
 )
@@ -20,11 +21,12 @@ func getHomeDir() string {
 
 // Config holds the application configuration
 type Config struct {
-	SearchPaths        []string `yaml:"search_paths"`
-	MaxDepth           int      `yaml:"max_depth"`
-	ExcludedDirs       []string `yaml:"excluded_dirs"`
-	DefaultSessionName string   `yaml:"default_session_name"`
-	ContainerTimeout   int      `yaml:"container_timeout_seconds"`
+	SearchPaths        []string    `yaml:"search_paths"`
+	MaxDepth           int         `yaml:"max_depth"`
+	ExcludedDirs       []string    `yaml:"excluded_dirs"`
+	DefaultSessionName string      `yaml:"default_session_name"`
+	ContainerTimeout   int         `yaml:"container_timeout_seconds"`
+	Auth               auth.Config `yaml:"auth,omitempty"`
 }
 
 // DefaultExcludedDirs returns the default directories to exclude from scanning
@@ -97,6 +99,11 @@ func Load() (*Config, error) {
 		cfg.ContainerTimeout = constants.MinContainerTimeout
 	} else if cfg.ContainerTimeout > constants.MaxContainerTimeout {
 		cfg.ContainerTimeout = constants.MaxContainerTimeout
+	}
+
+	// Validate auth configuration
+	if err := cfg.Auth.Validate(); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil

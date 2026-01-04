@@ -8,6 +8,7 @@ var (
 	colorSecondary = lipgloss.Color("#A78BFA") // Light purple
 	colorMuted     = lipgloss.Color("#6B7280") // Gray
 	colorSuccess   = lipgloss.Color("#10B981") // Green
+	colorWarning   = lipgloss.Color("#F59E0B") // Amber
 	colorError     = lipgloss.Color("#EF4444") // Red
 	colorWhite     = lipgloss.Color("#FFFFFF")
 )
@@ -54,6 +55,10 @@ var (
 	// Success style
 	SuccessStyle = lipgloss.NewStyle().
 			Foreground(colorSuccess)
+
+	// Warning style
+	WarningStyle = lipgloss.NewStyle().
+			Foreground(colorWarning)
 
 	// Box style for containers
 	BoxStyle = lipgloss.NewStyle().

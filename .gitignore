@@ -9,3 +9,6 @@ claude-quick
 
 # OS
 .DS_Store
+
+# Credentials
+.claude-quick-auth

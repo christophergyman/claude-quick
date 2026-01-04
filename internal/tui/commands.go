@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
 )
 
@@ -48,6 +49,19 @@ func (m Model) startContainer() tea.Cmd {
 			return containerErrorMsg{err: err}
 		}
 
+		// Resolve and write authentication credentials
+		var authWarning string
+		if m.config != nil {
+			result := m.config.Auth.Resolve(m.selectedInstance.Name)
+			if len(result.Credentials) > 0 {
+				// Write credentials to file in project directory
+				auth.WriteCredentialFile(m.selectedInstance.Path, result.Credentials)
+			}
+			if result.HasErrors() {
+				authWarning = result.ErrorSummary()
+			}
+		}
+
 		// Start the container (path-based, each worktree has unique path)
 		if err := devcontainer.Up(m.selectedInstance.Path); err != nil {
 			return containerErrorMsg{err: err}
@@ -58,7 +72,7 @@ func (m Model) startContainer() tea.Cmd {
 			return containerErrorMsg{err: &tmuxNotFoundError{}}
 		}
 
-		return containerStartedMsg{}
+		return containerStartedMsg{authWarning: authWarning}
 	}
 }
 
@@ -71,6 +85,8 @@ func (m Model) stopContainer() tea.Cmd {
 		if err := devcontainer.Stop(m.selectedInstance.Path); err != nil {
 			return containerErrorMsg{err: err}
 		}
+		// Clean up credential file after stopping container
+		auth.CleanupCredentialFile(m.selectedInstance.Path)
 		return containerStoppedMsg{}
 	}
 }

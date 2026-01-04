@@ -30,3 +30,31 @@ default_session_name: main
 # Container startup timeout in seconds (default: 300)
 # Minimum: 30, Maximum: 1800
 container_timeout_seconds: 300
+
+# Authentication credentials to inject into containers
+# Credentials are written to .claude-quick-auth and injected into tmux sessions
+auth:
+  # Global credentials applied to all containers
+  credentials:
+    # Read API key from a file
+    - name: ANTHROPIC_API_KEY
+      source: file
+      value: ~/.claude/.credentials
+
+    # Read token from host environment variable
+    - name: GITHUB_TOKEN
+      source: env
+      value: GITHUB_TOKEN
+
+    # Run a command to get the credential (e.g., 1Password CLI)
+    # - name: OPENAI_API_KEY
+    #   source: command
+    #   value: "op read op://Private/OpenAI/credential"
+
+  # Project-specific credential overrides (by directory name)
+  # projects:
+  #   my-work-project:
+  #     credentials:
+  #       - name: ANTHROPIC_API_KEY
+  #         source: file
+  #         value: ~/.claude/work-key

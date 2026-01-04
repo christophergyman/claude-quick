@@ -29,6 +29,7 @@ type Model struct {
 	height           int
 	config           *config.Config
 	previousState    State
+	authWarning      string // Warning message if auth credentials failed to resolve
 }
 
 // getInstanceName safely returns the selected instance display name
@@ -139,6 +140,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
 	case containerStartedMsg:
+		m.authWarning = msg.authWarning
 		return m.handleContainerStarted()
 
 	case containerErrorMsg:
@@ -243,7 +245,7 @@ func (m Model) View() string {
 		return RenderLoadingTmuxSessions(m.getInstanceName(), m.spinner.View())
 
 	case StateTmuxSelect:
-		return RenderTmuxSelect(m.getInstanceName(), m.tmuxSessions, m.cursor)
+		return RenderTmuxSelect(m.getInstanceName(), m.tmuxSessions, m.cursor, m.authWarning)
 
 	case StateNewSessionInput:
 		return RenderNewSessionInput(m.getInstanceName(), m.textInput)

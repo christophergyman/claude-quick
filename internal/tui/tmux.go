@@ -10,8 +10,14 @@ import (
 const newSessionOption = "[+ New Session]"
 
 // RenderTmuxSelect renders the tmux session selection view
-func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int) string {
+func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, authWarning string) string {
 	b := renderWithHeader("tmux Sessions in: " + projectName)
+
+	// Show auth warning if present
+	if authWarning != "" {
+		b.WriteString(WarningStyle.Render("Auth warning: " + authWarning))
+		b.WriteString("\n\n")
+	}
 
 	// Render sessions
 	for i, session := range sessions {

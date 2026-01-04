@@ -16,7 +16,10 @@ type instanceStatusRefreshedMsg struct {
 }
 
 // containerStartedMsg is sent when a container finishes starting
-type containerStartedMsg struct{}
+type containerStartedMsg struct {
+	// authWarning contains any auth credential resolution warnings (empty if none)
+	authWarning string
+}
 
 // containerErrorMsg is sent when any container operation fails
 type containerErrorMsg struct{ err error }

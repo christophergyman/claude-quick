@@ -1,9 +1,14 @@
 package devcontainer
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/christophergyman/claude-quick/internal/auth"
 )
 
 // ListTmuxSessions lists tmux sessions inside the container
@@ -29,8 +34,67 @@ func ListTmuxSessions(projectPath string) ([]string, error) {
 
 // CreateTmuxSession creates a new tmux session in the container
 func CreateTmuxSession(projectPath, sessionName string) error {
-	return execInContainerWithStderr(projectPath, "failed to create tmux session",
-		"tmux", "new-session", "-d", "-s", sessionName)
+	if err := execInContainerWithStderr(projectPath, "failed to create tmux session",
+		"tmux", "new-session", "-d", "-s", sessionName); err != nil {
+		return err
+	}
+
+	// Inject auth credentials into tmux session environment
+	// Using setenv makes env vars available to all windows/panes in the session
+	injectTmuxSessionEnv(projectPath, sessionName)
+
+	return nil
+}
+
+// injectTmuxSessionEnv reads credentials from the auth file and sets them as tmux session env vars.
+// Uses "tmux setenv" which propagates to all new windows/panes in the session.
+func injectTmuxSessionEnv(projectPath, sessionName string) {
+	creds := readCredentialFile(projectPath)
+	for name, value := range creds {
+		// tmux setenv -t session NAME value
+		execInContainer(projectPath, "tmux", "setenv", "-t", sessionName, name, value)
+	}
+}
+
+// readCredentialFile parses the .claude-quick-auth file and returns env var name/value pairs.
+func readCredentialFile(projectPath string) map[string]string {
+	result := make(map[string]string)
+
+	filePath := filepath.Join(projectPath, auth.CredFileName)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return result // File doesn't exist or can't be read
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip comments and empty lines
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse "export NAME='value'" format
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimPrefix(line, "export ")
+			if idx := strings.Index(line, "="); idx > 0 {
+				name := line[:idx]
+				value := line[idx+1:]
+
+				// Remove surrounding quotes
+				value = strings.Trim(value, "'\"")
+
+				// Handle escaped single quotes ('\"'\"')
+				value = strings.ReplaceAll(value, "'\"'\"'", "'")
+
+				result[name] = value
+			}
+		}
+	}
+
+	return result
 }
 
 // HasTmux checks if tmux is available in the container
