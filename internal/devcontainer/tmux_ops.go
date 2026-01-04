@@ -34,16 +34,25 @@ func ListTmuxSessions(projectPath string) ([]string, error) {
 
 // CreateTmuxSession creates a new tmux session in the container
 func CreateTmuxSession(projectPath, sessionName string) error {
+	// Read credentials BEFORE creating session so they're available to the initial shell
+	creds := readCredentialFile(projectPath)
+
+	// Build tmux command with -e flags to inject env vars at session creation time
+	// This ensures the initial shell gets the credentials (setenv only affects new windows)
+	args := []string{"new-session", "-d", "-s", sessionName}
+	for name, value := range creds {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", name, value))
+	}
+
 	if err := execInContainerWithStderr(projectPath, "failed to create tmux session",
-		"tmux", "new-session", "-d", "-s", sessionName); err != nil {
+		append([]string{"tmux"}, args...)...); err != nil {
 		return err
 	}
 
 	// Apply Anthropic-themed styling to the session
 	applyTmuxStyling(projectPath, sessionName)
 
-	// Inject auth credentials into tmux session environment
-	// Using setenv makes env vars available to all windows/panes in the session
+	// Also set via setenv for any new windows/panes created later
 	injectTmuxSessionEnv(projectPath, sessionName)
 
 	return nil

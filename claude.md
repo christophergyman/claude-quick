@@ -77,7 +77,16 @@ Three credential sources:
 2. `env` - Read from host environment variable
 3. `command` - Execute command (e.g., 1Password CLI)
 
-Flow: Resolve credentials → Write to `.claude-quick-auth` → Inject into tmux session via `tmux setenv`
+Flow: Resolve credentials → Write to `.claude-quick-auth` → Inject into tmux session
+
+**Credentials are available as environment variables in the tmux session**. They are injected in two ways:
+1. Via `tmux new-session -e NAME=value` - available to the initial shell immediately
+2. Via `tmux setenv` - propagates to any new windows/panes created later
+
+If you need to access credentials (e.g., `GITHUB_TOKEN` for git push), they should be available as normal environment variables. If not, you can source the auth file:
+```bash
+source /workspaces/<project>/.claude-quick-auth
+```
 
 ## Important Implementation Details
 
