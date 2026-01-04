@@ -151,6 +151,11 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 	// Get the main repo path
 	mainRepo := wtInfo.MainRepo
 
+	// Prune stale worktree entries before attempting to create
+	// This handles cases where directories were manually deleted
+	pruneCmd := exec.Command("git", "-C", mainRepo, "worktree", "prune")
+	_ = pruneCmd.Run() // Ignore errors - prune is best-effort cleanup
+
 	// Create worktree path as sibling directory: repo-branchname
 	// Replace "/" with "-" to avoid creating nested directories for hierarchical branches
 	repoName := filepath.Base(mainRepo)
@@ -162,8 +167,17 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 		return "", fmt.Errorf("worktree directory already exists: %s", worktreePath)
 	}
 
-	// Create the worktree with a new branch
-	cmd := exec.Command("git", "-C", mainRepo, "worktree", "add", "-b", branchName, worktreePath)
+	// Check if branch already exists
+	checkBranch := exec.Command("git", "-C", mainRepo, "rev-parse", "--verify", branchName)
+	branchExists := checkBranch.Run() == nil
+
+	// Create the worktree - use existing branch or create new one
+	var cmd *exec.Cmd
+	if branchExists {
+		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", worktreePath, branchName)
+	} else {
+		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", "-b", branchName, worktreePath)
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
