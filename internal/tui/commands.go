@@ -140,8 +140,10 @@ func (m Model) restartTmuxSession() tea.Cmd {
 		if err := devcontainer.KillTmuxSession(m.selectedInstance.Path, sessionName); err != nil {
 			return containerErrorMsg{err: err}
 		}
+		// Resolve launch command (project-specific or global default)
+		launchCmd := m.config.Auth.ResolveLaunchCommand(m.selectedInstance.Name, m.config.LaunchCommand)
 		// Create new session with same name
-		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, sessionName); err != nil {
+		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, sessionName, launchCmd); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return tmuxSessionRestartedMsg{}
@@ -175,7 +177,9 @@ func (m Model) createTmuxSession(name string) tea.Cmd {
 		if m.selectedInstance == nil {
 			return containerErrorMsg{err: errNoInstanceSelected}
 		}
-		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, name); err != nil {
+		// Resolve launch command (project-specific or global default)
+		launchCmd := m.config.Auth.ResolveLaunchCommand(m.selectedInstance.Name, m.config.LaunchCommand)
+		if err := devcontainer.CreateTmuxSession(m.selectedInstance.Path, name, launchCmd); err != nil {
 			return containerErrorMsg{err: err}
 		}
 		return tmuxSessionCreatedMsg{}

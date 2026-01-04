@@ -26,6 +26,7 @@ type Config struct {
 	ExcludedDirs       []string    `yaml:"excluded_dirs"`
 	DefaultSessionName string      `yaml:"default_session_name"`
 	ContainerTimeout   int         `yaml:"container_timeout_seconds"`
+	LaunchCommand      string      `yaml:"launch_command,omitempty"`
 	Auth               auth.Config `yaml:"auth,omitempty"`
 }
 

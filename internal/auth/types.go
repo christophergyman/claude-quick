@@ -36,6 +36,8 @@ type Credential struct {
 type ProjectAuth struct {
 	// Credentials overrides the global credentials for this project.
 	Credentials []Credential `yaml:"credentials,omitempty"`
+	// LaunchCommand is the command to run when a new tmux session is created.
+	LaunchCommand string `yaml:"launch_command,omitempty"`
 }
 
 // Config holds the authentication configuration.

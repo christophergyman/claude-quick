@@ -125,6 +125,7 @@ max_depth: 3
 excluded_dirs: [node_modules, vendor, .git]
 default_session_name: main
 container_timeout_seconds: 300
+launch_command: "claude"  # Command to run when a new tmux session is created
 
 auth:
   credentials:
@@ -133,6 +134,7 @@ auth:
       value: ~/.claude/.credentials
   projects:
     my-project:
+      launch_command: "npm run dev"  # Per-project override
       credentials:
         - name: API_KEY
           source: env
