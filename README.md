@@ -60,8 +60,22 @@ go build -o claude-quick .
 | `x` | Stop container or session |
 | `r` | Restart |
 | `R` | Refresh status |
+| `n` | New worktree |
+| `d` | Delete worktree |
 | `?` | Show config |
 | `q` / `Esc` | Back / Quit |
+
+## Git Worktrees
+
+Claude Quick treats each git worktree as a separate devcontainer instance, allowing you to work on multiple branches simultaneously in isolated containers.
+
+- **Create a worktree**: Press `n` on any git repository to create a new worktree from a branch
+- **Delete a worktree**: Press `d` to remove a worktree (stops container first if running)
+- **View**: Worktrees appear as `project [branch-name]` in the dashboard
+
+Constraints:
+- Can only create worktrees on git repositories
+- Cannot delete the main worktree (only branches)
 
 ## Configuration
 
