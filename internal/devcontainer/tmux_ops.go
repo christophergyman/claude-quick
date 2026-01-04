@@ -32,8 +32,9 @@ func ListTmuxSessions(projectPath string) ([]string, error) {
 	return sessions, nil
 }
 
-// CreateTmuxSession creates a new tmux session in the container
-func CreateTmuxSession(projectPath, sessionName string) error {
+// CreateTmuxSession creates a new tmux session in the container.
+// If launchCommand is non-empty, it will be sent to the session after creation.
+func CreateTmuxSession(projectPath, sessionName, launchCommand string) error {
 	// Read credentials BEFORE creating session so they're available to the initial shell
 	creds := readCredentialFile(projectPath)
 
@@ -54,6 +55,11 @@ func CreateTmuxSession(projectPath, sessionName string) error {
 
 	// Also set via setenv for any new windows/panes created later
 	injectTmuxSessionEnv(projectPath, sessionName)
+
+	// Run launch command if specified
+	if launchCommand != "" {
+		execInContainer(projectPath, "tmux", "send-keys", "-t", sessionName, launchCommand, "Enter")
+	}
 
 	return nil
 }

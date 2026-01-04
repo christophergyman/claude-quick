@@ -67,6 +67,17 @@ func (c *Config) Resolve(projectName string) *ResolveResult {
 	return result
 }
 
+// ResolveLaunchCommand returns the launch command for a project.
+// Returns the project-specific command if set, otherwise the global default.
+func (c *Config) ResolveLaunchCommand(projectName, globalDefault string) string {
+	if c != nil {
+		if proj, ok := c.Projects[projectName]; ok && proj.LaunchCommand != "" {
+			return proj.LaunchCommand
+		}
+	}
+	return globalDefault
+}
+
 // resolveCredential resolves a single credential from its source.
 func resolveCredential(cred Credential) (string, error) {
 	switch cred.Source {
