@@ -177,9 +177,13 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 // RemoveWorktree removes a git worktree
 // If mainRepoPath is provided, it will be used when the worktree directory doesn't exist
 func RemoveWorktree(worktreePath string, mainRepoPath ...string) error {
-	// Stop any running Docker container for this worktree first
-	// We attempt this regardless of whether the directory exists
-	_ = Stop(worktreePath) // Ignore error - container may not be running
+	// Stop any running Docker container for this worktree first and wait for full cleanup
+	if err := Stop(worktreePath); err != nil {
+		// Ignore "no running container" - that's expected if container isn't running
+		if !strings.Contains(err.Error(), "no running container") {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+	}
 
 	wtInfo := IsGitWorktree(worktreePath)
 
@@ -201,17 +205,12 @@ func RemoveWorktree(worktreePath string, mainRepoPath ...string) error {
 	}
 
 	// Remove the worktree using --force flag to handle missing directories
+	// This should succeed now that the container is fully stopped
 	cmd := exec.Command("git", "-C", mainRepo, "worktree", "remove", "--force", worktreePath)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		// If removal failed, try pruning stale worktrees
-		pruneCmd := exec.Command("git", "-C", mainRepo, "worktree", "prune")
-		if pruneErr := pruneCmd.Run(); pruneErr == nil {
-			// Pruning succeeded, check if the worktree was cleaned up
-			return nil
-		}
 		return fmt.Errorf("failed to remove worktree: %s", stderr.String())
 	}
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // CheckCLI verifies the devcontainer CLI is installed
@@ -62,6 +63,7 @@ func findContainerByPath(projectPath string, runningOnly bool) (string, error) {
 }
 
 // Stop stops the devcontainer by finding and stopping its Docker container
+// It waits for the container to fully exit before returning
 func Stop(projectPath string) error {
 	containerID, err := findContainerByPath(projectPath, true)
 	if err != nil {
@@ -76,7 +78,30 @@ func Stop(projectPath string) error {
 	if err := stopCmd.Run(); err != nil {
 		return fmt.Errorf("failed to stop container: %s", stderr.String())
 	}
-	return nil
+
+	// Wait for container to fully exit (not just receive stop signal)
+	return waitForContainerExit(containerID, 30*time.Second)
+}
+
+// waitForContainerExit polls docker until the container reaches exited state
+func waitForContainerExit(containerID string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		cmd := exec.Command("docker", "inspect", "-f", "{{.State.Status}}", containerID)
+		output, err := cmd.Output()
+		if err != nil {
+			// Container might be removed already - that's fine
+			return nil
+		}
+		status := strings.TrimSpace(string(output))
+		if status == "exited" || status == "dead" {
+			// Give a small buffer for mount cleanup
+			time.Sleep(500 * time.Millisecond)
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for container to exit")
 }
 
 // Restart restarts the devcontainer
