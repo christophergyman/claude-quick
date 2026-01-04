@@ -5,8 +5,18 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/christophergyman/claude-quick/internal/constants"
 	"gopkg.in/yaml.v3"
 )
+
+// getHomeDir returns the user's home directory with fallback to /tmp
+func getHomeDir() string {
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		return homeDir
+	}
+	// Fallback to /tmp if home directory cannot be determined
+	return os.TempDir()
+}
 
 // Config holds the application configuration
 type Config struct {
@@ -19,28 +29,17 @@ type Config struct {
 
 // DefaultExcludedDirs returns the default directories to exclude from scanning
 func DefaultExcludedDirs() []string {
-	return []string{
-		"node_modules",
-		"vendor",
-		".git",
-		"__pycache__",
-		"venv",
-		".venv",
-		"dist",
-		"build",
-		".cache",
-	}
+	return constants.DefaultExcludedDirs()
 }
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
-	homeDir, _ := os.UserHomeDir()
 	return &Config{
-		SearchPaths:        []string{homeDir},
-		MaxDepth:           3,
+		SearchPaths:        []string{getHomeDir()},
+		MaxDepth:           constants.DefaultMaxDepth,
 		ExcludedDirs:       DefaultExcludedDirs(),
-		DefaultSessionName: "main",
-		ContainerTimeout:   300,
+		DefaultSessionName: constants.DefaultSessionName,
+		ContainerTimeout:   constants.DefaultContainerTimeout,
 	}
 }
 
@@ -48,8 +47,7 @@ func DefaultConfig() *Config {
 func configPath() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		homeDir, _ := os.UserHomeDir()
-		configDir = filepath.Join(homeDir, ".config")
+		configDir = filepath.Join(getHomeDir(), ".config")
 	}
 	return filepath.Join(configDir, "claude-quick", "config.yaml")
 }
@@ -79,7 +77,7 @@ func Load() (*Config, error) {
 
 	// Ensure reasonable defaults
 	if cfg.MaxDepth <= 0 {
-		cfg.MaxDepth = 3
+		cfg.MaxDepth = constants.DefaultMaxDepth
 	}
 
 	// Use default excluded dirs if none specified
@@ -89,16 +87,16 @@ func Load() (*Config, error) {
 
 	// Ensure default session name
 	if cfg.DefaultSessionName == "" {
-		cfg.DefaultSessionName = "main"
+		cfg.DefaultSessionName = constants.DefaultSessionName
 	}
 
 	// Ensure reasonable timeout (minimum 30 seconds, max 30 minutes)
 	if cfg.ContainerTimeout <= 0 {
-		cfg.ContainerTimeout = 300
-	} else if cfg.ContainerTimeout < 30 {
-		cfg.ContainerTimeout = 30
-	} else if cfg.ContainerTimeout > 1800 {
-		cfg.ContainerTimeout = 1800
+		cfg.ContainerTimeout = constants.DefaultContainerTimeout
+	} else if cfg.ContainerTimeout < constants.MinContainerTimeout {
+		cfg.ContainerTimeout = constants.MinContainerTimeout
+	} else if cfg.ContainerTimeout > constants.MaxContainerTimeout {
+		cfg.ContainerTimeout = constants.MaxContainerTimeout
 	}
 
 	return cfg, nil
@@ -110,8 +108,7 @@ func expandPath(path string) string {
 		return path
 	}
 	if path[0] == '~' {
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, path[1:])
+		return filepath.Join(getHomeDir(), path[1:])
 	}
 	return path
 }

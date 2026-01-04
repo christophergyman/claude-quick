@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/christophergyman/claude-quick/internal/constants"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
 )
 
@@ -22,14 +23,7 @@ func renderWithHeader(subtitle string) *strings.Builder {
 
 // RenderContainerStarting renders the loading state while container starts
 func RenderContainerStarting(projectName string, spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Starting ")
-	b.WriteString(SuccessStyle.Render(projectName))
-	b.WriteString("...")
-	b.WriteString("\n\n")
-	b.WriteString(DimmedStyle.Render("This may take a moment..."))
-	return b.String()
+	return renderSpinnerWithHint(spinnerView, "Starting", projectName, "This may take a moment...")
 }
 
 // RenderError renders an error message
@@ -91,18 +85,13 @@ func RenderContainerOperation(operation, projectName, spinnerView string) string
 
 // RenderDiscovering renders the project discovery loading state
 func RenderDiscovering(spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Discovering projects...")
-	b.WriteString("\n\n")
-	b.WriteString(DimmedStyle.Render("Searching for devcontainer.json files..."))
-	return b.String()
+	return renderSpinnerWithHint(spinnerView, "Discovering projects", "", "Searching for devcontainer.json files...")
 }
 
 // truncatePath shortens a path to fit within maxLen
 func truncatePath(path string, maxLen int) string {
 	if maxLen <= 0 {
-		maxLen = 40
+		maxLen = constants.DefaultPathTruncateLen
 	}
 	if len(path) <= maxLen {
 		return path
@@ -112,10 +101,7 @@ func truncatePath(path string, maxLen int) string {
 
 // RenderRefreshingStatus renders the loading state while refreshing container status
 func RenderRefreshingStatus(spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Refreshing container status...")
-	return b.String()
+	return renderSpinnerAction(spinnerView, "Refreshing container status", "")
 }
 
 // RenderDashboard renders the container dashboard with status indicators
@@ -154,7 +140,7 @@ func RenderDashboard(instances []devcontainer.ContainerInstanceWithStatus, curso
 		b.WriteString("\n")
 
 		// Show path on next line (dimmed)
-		pathLine := "    " + DimmedStyle.Render(truncatePath(instance.Path, width-6))
+		pathLine := "    " + DimmedStyle.Render(truncatePath(instance.Path, width-constants.PathTruncatePadding))
 		b.WriteString(pathLine)
 		b.WriteString("\n")
 	}
@@ -199,14 +185,7 @@ func RenderNewWorktreeInput(projectName string, input interface{ View() string }
 
 // RenderCreatingWorktree renders the loading state while creating a new worktree
 func RenderCreatingWorktree(branchName string, spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Creating worktree ")
-	b.WriteString(SuccessStyle.Render(branchName))
-	b.WriteString("...")
-	b.WriteString("\n\n")
-	b.WriteString(DimmedStyle.Render("Running git worktree add..."))
-	return b.String()
+	return renderSpinnerWithHint(spinnerView, "Creating worktree", branchName, "Running git worktree add...")
 }
 
 // RenderConfirmDeleteWorktree renders the confirmation dialog for deleting a worktree
@@ -225,12 +204,5 @@ func RenderConfirmDeleteWorktree(branchName string) string {
 
 // RenderDeletingWorktree renders the loading state while deleting a worktree
 func RenderDeletingWorktree(branchName string, spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Deleting worktree ")
-	b.WriteString(SuccessStyle.Render(branchName))
-	b.WriteString("...")
-	b.WriteString("\n\n")
-	b.WriteString(DimmedStyle.Render("Running git worktree remove..."))
-	return b.String()
+	return renderSpinnerWithHint(spinnerView, "Deleting worktree", branchName, "Running git worktree remove...")
 }

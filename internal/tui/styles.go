@@ -10,7 +10,6 @@ var (
 	colorSuccess   = lipgloss.Color("#10B981") // Green
 	colorError     = lipgloss.Color("#EF4444") // Red
 	colorWhite     = lipgloss.Color("#FFFFFF")
-	colorBlack     = lipgloss.Color("#000000")
 )
 
 // Styles

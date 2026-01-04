@@ -28,7 +28,11 @@ func ParseSessions(output []string) []Session {
 			continue
 		}
 
-		attached, _ := strconv.Atoi(parts[1])
+		// Parse attached count; default to 0 if malformed (no attached clients)
+		attached, err := strconv.Atoi(parts[1])
+		if err != nil {
+			attached = 0
+		}
 		sessions = append(sessions, Session{
 			Name:     parts[0],
 			Attached: attached,

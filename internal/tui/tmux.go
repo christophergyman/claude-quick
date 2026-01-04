@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/christophergyman/claude-quick/internal/tmux"
 )
@@ -57,17 +59,16 @@ func RenderNewSessionInput(projectName string, ti textinput.Model) string {
 
 // RenderAttaching renders the view while attaching to a tmux session
 func RenderAttaching(projectName, sessionName, spinnerView string) string {
-	b := renderWithHeader("")
-	b.WriteString(SpinnerStyle.Render(spinnerView))
-	b.WriteString(" Attaching to ")
-	b.WriteString(SuccessStyle.Render(sessionName))
-	b.WriteString("...")
-	return b.String()
+	return renderSpinnerAction(spinnerView, "Attaching to", sessionName)
 }
 
 // RenderLoadingTmuxSessions renders the loading state while fetching tmux sessions
 func RenderLoadingTmuxSessions(projectName, spinnerView string) string {
-	b := renderWithHeader("Project: " + projectName)
+	var b strings.Builder
+	b.WriteString(TitleStyle.Render("claude-quick"))
+	b.WriteString("\n")
+	b.WriteString(SubtitleStyle.Render("Project: " + projectName))
+	b.WriteString("\n\n")
 	b.WriteString(SpinnerStyle.Render(spinnerView))
 	b.WriteString(" Loading tmux sessions...")
 	return b.String()
