@@ -4,8 +4,8 @@ import "github.com/charmbracelet/lipgloss"
 
 // Colors - high contrast for mobile visibility
 var (
-	colorPrimary   = lipgloss.Color("#7C3AED") // Purple
-	colorSecondary = lipgloss.Color("#A78BFA") // Light purple
+	colorPrimary   = lipgloss.Color("#E07A5F") // Claude Orange (terracotta/salmon)
+	colorSecondary = lipgloss.Color("#F2A885") // Light orange
 	colorMuted     = lipgloss.Color("#6B7280") // Gray
 	colorSuccess   = lipgloss.Color("#10B981") // Green
 	colorWarning   = lipgloss.Color("#F59E0B") // Amber
@@ -75,6 +75,11 @@ var (
 	// Spinner style
 	SpinnerStyle = lipgloss.NewStyle().
 			Foreground(colorPrimary)
+
+	// Mascot shoe style
+	ShoeStyle = lipgloss.NewStyle().
+			Foreground(colorError).
+			Bold(true)
 )
 
 // Cursor returns the selection cursor
@@ -88,4 +93,22 @@ func Cursor() string {
 // NoCursor returns spacing for non-selected items
 func NoCursor() string {
 	return "  "
+}
+
+// RenderMascot returns the cute mascot with red shoes
+func RenderMascot() string {
+	// Ghost Claude - friendly rounded shape with red shoes
+	//  ╭───╮
+	//  │◠◡◠│
+	//  ╰─┬─╯
+	//   ╱ ╲
+	//  ▀   ▀  <- red shoes
+
+	line1 := DimmedStyle.Render(" ╭───╮")
+	line2 := DimmedStyle.Render(" │") + TitleStyle.Render("◠◡◠") + DimmedStyle.Render("│")
+	line3 := DimmedStyle.Render(" ╰─┬─╯")
+	line4 := DimmedStyle.Render("  ╱ ╲")
+	line5 := " " + ShoeStyle.Render("▀") + "   " + ShoeStyle.Render("▀")
+
+	return line1 + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n" + line5
 }

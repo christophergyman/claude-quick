@@ -4,19 +4,32 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/christophergyman/claude-quick/internal/constants"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
 )
 
 // renderWithHeader creates a strings.Builder with the standard title header
-// If subtitle is provided, it's also rendered below the title
+// Includes mascot alongside title. If subtitle is provided, it's also rendered.
 func renderWithHeader(subtitle string) *strings.Builder {
 	var b strings.Builder
-	b.WriteString(TitleStyle.Render("claude-quick"))
+
+	// Create side-by-side layout: mascot | title
+	mascot := RenderMascot()
+	titleBlock := TitleStyle.Render("claude-quick")
 	if subtitle != "" {
-		b.WriteString("\n")
-		b.WriteString(SubtitleStyle.Render(subtitle))
+		titleBlock += "\n" + SubtitleStyle.Render(subtitle)
 	}
+
+	// Use lipgloss.JoinHorizontal for layout
+	header := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		mascot,
+		"  ", // spacing
+		titleBlock,
+	)
+
+	b.WriteString(header)
 	b.WriteString("\n\n")
 	return &b
 }
