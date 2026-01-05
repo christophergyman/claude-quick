@@ -7,6 +7,7 @@ import (
 
 	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/constants"
+	"github.com/christophergyman/claude-quick/internal/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,7 +78,7 @@ func Load() (*Config, error) {
 
 	// Expand ~ in paths
 	for i, p := range cfg.SearchPaths {
-		cfg.SearchPaths[i] = expandPath(p)
+		cfg.SearchPaths[i] = util.ExpandPath(p)
 	}
 
 	// Ensure reasonable defaults
@@ -110,17 +111,6 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// expandPath expands ~ to the user's home directory
-func expandPath(path string) string {
-	if len(path) == 0 {
-		return path
-	}
-	if path[0] == '~' {
-		return filepath.Join(getHomeDir(), path[1:])
-	}
-	return path
 }
 
 // ConfigPath returns the path where the config file should be located

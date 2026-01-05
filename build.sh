@@ -11,8 +11,12 @@ BINARY_PATH="${PROJECT_DIR}/${BINARY_NAME}"
 INSTALL_DIR="${HOME}/.local/bin"
 SYMLINK_PATH="${INSTALL_DIR}/${BINARY_NAME}"
 
-echo "==> Building Claude Quick..."
+echo "==> Running tests..."
 cd "${PROJECT_DIR}"
+go test ./...
+echo "    All tests passed!"
+
+echo "==> Building Claude Quick..."
 go build -o "${BINARY_NAME}" .
 echo "    Build successful: ${BINARY_PATH}"
 
