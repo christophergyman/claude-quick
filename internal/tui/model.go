@@ -30,6 +30,7 @@ type Model struct {
 	config           *config.Config
 	previousState    State
 	authWarning      string // Warning message if auth credentials failed to resolve
+	darkMode         bool   // Current theme mode (true = dark, false = light)
 }
 
 // getInstanceName safely returns the selected instance display name
@@ -67,6 +68,10 @@ func newTextInput(placeholder string) textinput.Model {
 
 // New creates a new Model with discovered instances
 func New(instances []devcontainer.ContainerInstance, cfg *config.Config) Model {
+	// Initialize theme from config
+	darkMode := cfg.IsDarkMode()
+	ApplyTheme(darkMode)
+
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = SpinnerStyle
@@ -78,11 +83,16 @@ func New(instances []devcontainer.ContainerInstance, cfg *config.Config) Model {
 		textInput:     newTextInput(cfg.DefaultSessionName),
 		worktreeInput: newTextInput(constants.DefaultWorktreePlaceholder),
 		config:        cfg,
+		darkMode:      darkMode,
 	}
 }
 
 // NewWithDiscovery creates a Model that will discover instances asynchronously
 func NewWithDiscovery(cfg *config.Config) Model {
+	// Initialize theme from config
+	darkMode := cfg.IsDarkMode()
+	ApplyTheme(darkMode)
+
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = SpinnerStyle
@@ -94,6 +104,7 @@ func NewWithDiscovery(cfg *config.Config) Model {
 		textInput:     newTextInput(cfg.DefaultSessionName),
 		worktreeInput: newTextInput(constants.DefaultWorktreePlaceholder),
 		config:        cfg,
+		darkMode:      darkMode,
 	}
 }
 
