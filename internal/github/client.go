@@ -22,17 +22,34 @@ func CheckCLI() error {
 	return nil
 }
 
-// DetectRepository determines the GitHub owner/repo from git remote.
+// DetectRepository determines the GitHub owner/repo using gh CLI.
 func DetectRepository(repoPath string) (owner, repo string, err error) {
-	// Run: git -C <path> remote get-url origin
-	cmd := exec.Command("git", "-C", repoPath, "remote", "get-url", "origin")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", "", fmt.Errorf("no git remote found: %w", err)
+	if err := CheckCLI(); err != nil {
+		return "", "", err
 	}
 
-	// Parse remote URL (handles SSH and HTTPS formats)
-	return parseGitHubURL(strings.TrimSpace(string(output)))
+	// Use gh repo view to get owner and repo name
+	cmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", "", fmt.Errorf("not a GitHub repository: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return "", "", fmt.Errorf("failed to detect repository: %w", err)
+	}
+
+	var result struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		return "", "", fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	return result.Owner.Login, result.Name, nil
 }
 
 // FetchIssues retrieves issues from the repository.
@@ -99,29 +116,3 @@ func FetchIssueBody(owner, repo string, number int) (string, error) {
 	return result.Body, nil
 }
 
-// parseGitHubURL extracts owner/repo from various GitHub URL formats.
-func parseGitHubURL(url string) (owner, repo string, err error) {
-	// Handle SSH format: git@github.com:owner/repo.git
-	if strings.HasPrefix(url, "git@github.com:") {
-		path := strings.TrimPrefix(url, "git@github.com:")
-		path = strings.TrimSuffix(path, ".git")
-		parts := strings.Split(path, "/")
-		if len(parts) != 2 {
-			return "", "", fmt.Errorf("invalid GitHub SSH URL: %s", url)
-		}
-		return parts[0], parts[1], nil
-	}
-
-	// Handle HTTPS format: https://github.com/owner/repo.git
-	if strings.HasPrefix(url, "https://github.com/") {
-		path := strings.TrimPrefix(url, "https://github.com/")
-		path = strings.TrimSuffix(path, ".git")
-		parts := strings.Split(path, "/")
-		if len(parts) != 2 {
-			return "", "", fmt.Errorf("invalid GitHub HTTPS URL: %s", url)
-		}
-		return parts[0], parts[1], nil
-	}
-
-	return "", "", fmt.Errorf("not a GitHub repository: %s", url)
-}
