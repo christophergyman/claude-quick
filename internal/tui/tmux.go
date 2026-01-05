@@ -76,7 +76,8 @@ func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, a
 	b.WriteString("\n")
 
 	// Key bindings - second row with right-aligned detach hint
-	leftKeys := fmt.Sprintf("  %s  %s",
+	leftKeys := fmt.Sprintf("  %s  %s  %s",
+		RenderKeyBinding("t", "theme"),
 		RenderKeyBinding("?", "config"),
 		RenderKeyBinding("q", "back"),
 	)

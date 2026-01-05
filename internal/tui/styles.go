@@ -2,97 +2,192 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Colors - Claude Code inspired palette
-var (
-	colorOrange    = lipgloss.Color("#E07A5F") // Anthropic orange (terracotta/salmon)
-	colorWhite     = lipgloss.Color("#FFFFFF") // White for selected items
-	colorDim       = lipgloss.Color("#6B7280") // Gray for dimmed text
-	colorSuccess   = lipgloss.Color("#10B981") // Green for running
-	colorWarning   = lipgloss.Color("#F59E0B") // Yellow/amber for stopped
-	colorError     = lipgloss.Color("#EF4444") // Red for errors
-	colorSeparator = lipgloss.Color("#4B5563") // Darker gray for separators
-)
+// colorPalette holds all colors for a theme
+type colorPalette struct {
+	orange    lipgloss.Color
+	primary   lipgloss.Color
+	dim       lipgloss.Color
+	success   lipgloss.Color
+	warning   lipgloss.Color
+	errorCol  lipgloss.Color
+	separator lipgloss.Color
+}
 
-// Styles
+// Dark mode palette (for dark terminal backgrounds)
+var darkPalette = colorPalette{
+	orange:    lipgloss.Color("#E07A5F"), // Anthropic orange (terracotta/salmon)
+	primary:   lipgloss.Color("#FFFFFF"), // White for primary text
+	dim:       lipgloss.Color("#6B7280"), // Gray for dimmed text
+	success:   lipgloss.Color("#10B981"), // Green for running
+	warning:   lipgloss.Color("#F59E0B"), // Yellow/amber for stopped
+	errorCol:  lipgloss.Color("#EF4444"), // Red for errors
+	separator: lipgloss.Color("#4B5563"), // Darker gray for separators
+}
+
+// Light mode palette (for light terminal backgrounds)
+var lightPalette = colorPalette{
+	orange:    lipgloss.Color("#C45A3E"), // Darker orange for contrast
+	primary:   lipgloss.Color("#1F2937"), // Dark gray for primary text
+	dim:       lipgloss.Color("#6B7280"), // Medium gray
+	success:   lipgloss.Color("#059669"), // Darker green
+	warning:   lipgloss.Color("#D97706"), // Darker amber
+	errorCol:  lipgloss.Color("#DC2626"), // Darker red
+	separator: lipgloss.Color("#9CA3AF"), // Light gray borders
+}
+
+// currentPalette holds the active color palette
+var currentPalette = darkPalette
+
+// IsDarkMode tracks the current theme state
+var IsDarkMode = true
+
+// Styles - initialized with dark mode colors
 var (
 	// Header title style (Anthropic orange)
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorOrange)
+			Foreground(currentPalette.orange)
 
 	// Subtitle style
 	SubtitleStyle = lipgloss.NewStyle().
-			Foreground(colorDim)
+			Foreground(currentPalette.dim)
 
-	// Selected item style - white bold (no background)
+	// Selected item style - bold primary color (no background)
 	SelectedStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorWhite)
+			Foreground(currentPalette.primary)
 
 	// Unselected item style
 	ItemStyle = lipgloss.NewStyle().
-			Foreground(colorWhite)
+			Foreground(currentPalette.primary)
 
 	// Dimmed item style (for paths, details)
 	DimmedStyle = lipgloss.NewStyle().
-			Foreground(colorDim)
+			Foreground(currentPalette.dim)
 
 	// Help text style
 	HelpStyle = lipgloss.NewStyle().
-			Foreground(colorDim)
+			Foreground(currentPalette.dim)
 
 	// Error style
 	ErrorStyle = lipgloss.NewStyle().
-			Foreground(colorError).
+			Foreground(currentPalette.errorCol).
 			Bold(true)
 
 	// Success style
 	SuccessStyle = lipgloss.NewStyle().
-			Foreground(colorSuccess)
+			Foreground(currentPalette.success)
 
 	// Warning style
 	WarningStyle = lipgloss.NewStyle().
-			Foreground(colorWarning)
+			Foreground(currentPalette.warning)
 
 	// Box style for containers
 	BoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorDim).
+			BorderForeground(currentPalette.dim).
 			Padding(0, 1)
 
 	// Input style for text input
 	InputStyle = lipgloss.NewStyle().
-			Foreground(colorWhite)
+			Foreground(currentPalette.primary)
 
 	// Spinner style
 	SpinnerStyle = lipgloss.NewStyle().
-			Foreground(colorOrange)
+			Foreground(currentPalette.orange)
 
 	// Separator style
 	SeparatorStyle = lipgloss.NewStyle().
-			Foreground(colorSeparator)
+			Foreground(currentPalette.separator)
 
 	// Key highlight style (for keybinding display)
 	KeyStyle = lipgloss.NewStyle().
-			Foreground(colorWhite)
+			Foreground(currentPalette.primary)
 
 	// Column header style
 	ColumnHeaderStyle = lipgloss.NewStyle().
-				Foreground(colorDim).
+				Foreground(currentPalette.dim).
 				Bold(true)
 )
 
 // Status text styles with labels
 var (
-	StatusRunning = lipgloss.NewStyle().Foreground(colorSuccess)
-	StatusStopped = lipgloss.NewStyle().Foreground(colorWarning)
-	StatusUnknown = lipgloss.NewStyle().Foreground(colorDim)
+	StatusRunning = lipgloss.NewStyle().Foreground(currentPalette.success)
+	StatusStopped = lipgloss.NewStyle().Foreground(currentPalette.warning)
+	StatusUnknown = lipgloss.NewStyle().Foreground(currentPalette.dim)
 )
+
+// ApplyTheme updates all styles based on the dark mode setting
+func ApplyTheme(darkMode bool) {
+	IsDarkMode = darkMode
+	if darkMode {
+		currentPalette = darkPalette
+	} else {
+		currentPalette = lightPalette
+	}
+
+	// Rebuild all styles with the new palette
+	TitleStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(currentPalette.orange)
+
+	SubtitleStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.dim)
+
+	SelectedStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(currentPalette.primary)
+
+	ItemStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.primary)
+
+	DimmedStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.dim)
+
+	HelpStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.dim)
+
+	ErrorStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.errorCol).
+		Bold(true)
+
+	SuccessStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.success)
+
+	WarningStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.warning)
+
+	BoxStyle = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(currentPalette.dim).
+		Padding(0, 1)
+
+	InputStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.primary)
+
+	SpinnerStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.orange)
+
+	SeparatorStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.separator)
+
+	KeyStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.primary)
+
+	ColumnHeaderStyle = lipgloss.NewStyle().
+		Foreground(currentPalette.dim).
+		Bold(true)
+
+	// Status styles
+	StatusRunning = lipgloss.NewStyle().Foreground(currentPalette.success)
+	StatusStopped = lipgloss.NewStyle().Foreground(currentPalette.warning)
+	StatusUnknown = lipgloss.NewStyle().Foreground(currentPalette.dim)
+}
 
 // Cursor returns the selection cursor (› instead of >)
 func Cursor() string {
 	return lipgloss.NewStyle().
-		Foreground(colorOrange).
+		Foreground(currentPalette.orange).
 		Bold(true).
 		Render("› ")
 }

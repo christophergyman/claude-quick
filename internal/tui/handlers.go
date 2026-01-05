@@ -130,6 +130,12 @@ func (m Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.previousState = m.state
 		m.state = StateShowConfig
 		return m, nil
+
+	case "t":
+		// Toggle dark/light theme
+		m.darkMode = !m.darkMode
+		ApplyTheme(m.darkMode)
+		return m, nil
 	}
 	return m, nil
 }
@@ -213,6 +219,12 @@ func (m Model) handleTmuxSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.previousState = m.state
 		m.state = StateShowConfig
+		return m, nil
+
+	case "t":
+		// Toggle dark/light theme
+		m.darkMode = !m.darkMode
+		ApplyTheme(m.darkMode)
 		return m, nil
 
 	case "enter":

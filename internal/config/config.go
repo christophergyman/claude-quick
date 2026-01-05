@@ -27,6 +27,7 @@ type Config struct {
 	DefaultSessionName string      `yaml:"default_session_name"`
 	ContainerTimeout   int         `yaml:"container_timeout_seconds"`
 	LaunchCommand      string      `yaml:"launch_command,omitempty"`
+	DarkMode           *bool       `yaml:"dark_mode,omitempty"`
 	Auth               auth.Config `yaml:"auth,omitempty"`
 }
 
@@ -124,4 +125,12 @@ func expandPath(path string) string {
 // ConfigPath returns the path where the config file should be located
 func ConfigPath() string {
 	return configPath()
+}
+
+// IsDarkMode returns the dark mode setting, defaulting to true if not set
+func (c *Config) IsDarkMode() bool {
+	if c.DarkMode == nil {
+		return true // Default to dark mode for backwards compatibility
+	}
+	return *c.DarkMode
 }
