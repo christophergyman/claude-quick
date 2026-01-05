@@ -1,11 +1,8 @@
 # Claude Quick
 
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
+![Claude Quick](claude-quick-pic.png)
 A terminal UI for managing tmux sessions across your devcontainers.
 
-![Claude Quick](claude-quick-pic.png)
 
 ## Quick Start
 
