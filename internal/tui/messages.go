@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/christophergyman/claude-quick/internal/devcontainer"
+import (
+	"github.com/christophergyman/claude-quick/internal/devcontainer"
+	"github.com/christophergyman/claude-quick/internal/github"
+)
 
 // Message types for async operations in Bubbletea.
 // These are returned by commands and processed in the Update method.
@@ -52,6 +55,29 @@ type worktreeCreatedMsg struct {
 
 // worktreeDeletedMsg is sent when a git worktree is deleted
 type worktreeDeletedMsg struct{}
+
+// githubIssuesLoadedMsg is sent when GitHub issues are successfully fetched
+type githubIssuesLoadedMsg struct {
+	issues []github.Issue
+	owner  string
+	repo   string
+}
+
+// githubIssuesErrorMsg is sent when fetching GitHub issues fails
+type githubIssuesErrorMsg struct {
+	err error
+}
+
+// githubIssueDetailLoadedMsg is sent when a single issue's details are loaded
+type githubIssueDetailLoadedMsg struct {
+	body string
+}
+
+// githubWorktreeCreatedMsg is sent when worktree creation from issue succeeds
+type githubWorktreeCreatedMsg struct {
+	worktreePath string
+	branchName   string
+}
 
 // tmuxNotFoundError indicates tmux is not available in the container
 type tmuxNotFoundError struct{}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/constants"
+	"github.com/christophergyman/claude-quick/internal/github"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,14 +22,15 @@ func getHomeDir() string {
 
 // Config holds the application configuration
 type Config struct {
-	SearchPaths        []string    `yaml:"search_paths"`
-	MaxDepth           int         `yaml:"max_depth"`
-	ExcludedDirs       []string    `yaml:"excluded_dirs"`
-	DefaultSessionName string      `yaml:"default_session_name"`
-	ContainerTimeout   int         `yaml:"container_timeout_seconds"`
-	LaunchCommand      string      `yaml:"launch_command,omitempty"`
-	DarkMode           *bool       `yaml:"dark_mode,omitempty"`
-	Auth               auth.Config `yaml:"auth,omitempty"`
+	SearchPaths        []string      `yaml:"search_paths"`
+	MaxDepth           int           `yaml:"max_depth"`
+	ExcludedDirs       []string      `yaml:"excluded_dirs"`
+	DefaultSessionName string        `yaml:"default_session_name"`
+	ContainerTimeout   int           `yaml:"container_timeout_seconds"`
+	LaunchCommand      string        `yaml:"launch_command,omitempty"`
+	DarkMode           *bool         `yaml:"dark_mode,omitempty"`
+	Auth               auth.Config   `yaml:"auth,omitempty"`
+	GitHub             github.Config `yaml:"github,omitempty"`
 }
 
 // DefaultExcludedDirs returns the default directories to exclude from scanning
@@ -44,6 +46,7 @@ func DefaultConfig() *Config {
 		ExcludedDirs:       DefaultExcludedDirs(),
 		DefaultSessionName: constants.DefaultSessionName,
 		ContainerTimeout:   constants.DefaultContainerTimeout,
+		GitHub:             github.DefaultConfig(),
 	}
 }
 
@@ -106,6 +109,17 @@ func Load() (*Config, error) {
 	// Validate auth configuration
 	if err := cfg.Auth.Validate(); err != nil {
 		return nil, err
+	}
+
+	// Ensure GitHub config has sensible defaults
+	if cfg.GitHub.MaxIssues <= 0 {
+		cfg.GitHub.MaxIssues = constants.DefaultMaxIssues
+	}
+	if cfg.GitHub.BranchPrefix == "" {
+		cfg.GitHub.BranchPrefix = constants.DefaultBranchPrefix
+	}
+	if cfg.GitHub.DefaultState == "" {
+		cfg.GitHub.DefaultState = github.IssueStateOpen
 	}
 
 	return cfg, nil

@@ -67,3 +67,10 @@ func DefaultExcludedDirs() []string {
 		".cache",
 	}
 }
+
+// GitHub integration constants
+const (
+	DefaultMaxIssues      = 50        // Maximum number of issues to fetch
+	DefaultBranchPrefix   = "issue-"  // Prefix for auto-generated branch names
+	MaxBranchNameLength   = 50        // Maximum length for branch names
+)

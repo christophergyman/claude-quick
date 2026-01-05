@@ -9,6 +9,7 @@ import (
 
 	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
+	"github.com/christophergyman/claude-quick/internal/github"
 )
 
 // Common errors for nil checks
@@ -237,5 +238,80 @@ func (m Model) createWorktree(branchName string) tea.Cmd {
 			return containerErrorMsg{err: err}
 		}
 		return worktreeCreatedMsg{worktreePath: worktreePath}
+	}
+}
+
+// loadGitHubIssues fetches issues from the current repository
+func (m Model) loadGitHubIssues() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedInstance == nil {
+			return githubIssuesErrorMsg{err: errNoInstanceSelected}
+		}
+
+		// Detect repo from git remote
+		owner, repo, err := github.DetectRepository(m.selectedInstance.Path)
+		if err != nil {
+			return githubIssuesErrorMsg{err: err}
+		}
+
+		// Fetch issues using gh CLI
+		issues, err := github.FetchIssues(owner, repo, m.config.GitHub)
+		if err != nil {
+			return githubIssuesErrorMsg{err: err}
+		}
+
+		return githubIssuesLoadedMsg{
+			issues: issues,
+			owner:  owner,
+			repo:   repo,
+		}
+	}
+}
+
+// loadGitHubIssueDetail fetches the full body of a single issue
+func (m Model) loadGitHubIssueDetail() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedIssue == nil {
+			return githubIssuesErrorMsg{err: errors.New("no issue selected")}
+		}
+
+		// Fetch issue body
+		body, err := github.FetchIssueBody(m.githubRepoOwner, m.githubRepoName, m.selectedIssue.Number)
+		if err != nil {
+			return githubIssuesErrorMsg{err: err}
+		}
+
+		return githubIssueDetailLoadedMsg{body: body}
+	}
+}
+
+// createWorktreeFromIssue creates a worktree with auto-generated branch name from issue
+func (m Model) createWorktreeFromIssue() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedInstance == nil {
+			return containerErrorMsg{err: errNoInstanceSelected}
+		}
+		if m.selectedIssue == nil {
+			return containerErrorMsg{err: errors.New("no issue selected")}
+		}
+
+		// Generate branch name from issue
+		branchName := github.GenerateBranchName(m.selectedIssue, m.config.GitHub.BranchPrefix)
+
+		// Validate branch name (reuse existing validation)
+		if err := devcontainer.ValidateBranchName(branchName); err != nil {
+			return containerErrorMsg{err: err}
+		}
+
+		// Create worktree
+		worktreePath, err := devcontainer.CreateWorktree(m.selectedInstance.Path, branchName)
+		if err != nil {
+			return containerErrorMsg{err: err}
+		}
+
+		return githubWorktreeCreatedMsg{
+			worktreePath: worktreePath,
+			branchName:   branchName,
+		}
 	}
 }

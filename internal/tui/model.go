@@ -8,6 +8,7 @@ import (
 	"github.com/christophergyman/claude-quick/internal/config"
 	"github.com/christophergyman/claude-quick/internal/constants"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
+	"github.com/christophergyman/claude-quick/internal/github"
 	"github.com/christophergyman/claude-quick/internal/tmux"
 )
 
@@ -31,6 +32,16 @@ type Model struct {
 	previousState    State
 	authWarning      string // Warning message if auth credentials failed to resolve
 	darkMode         bool   // Current theme mode (true = dark, false = light)
+
+	// GitHub Issues state
+	githubIssues    []github.Issue  // Cached list of issues
+	selectedIssue   *github.Issue   // Currently selected issue
+	githubRepoOwner string          // Detected owner (e.g., "christophergyman")
+	githubRepoName  string          // Detected repo name (e.g., "claude-quick")
+
+	// Auto-start state (for GitHub issue worktree creation)
+	pendingAutoStart      bool   // Whether to auto-start after discovery
+	autoStartWorktreePath string // Path of newly created worktree to auto-start
 }
 
 // getInstanceName safely returns the selected instance display name
@@ -140,6 +151,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case instanceStatusRefreshedMsg:
 		m.instancesStatus = msg.statuses
+
+		// Check if we need to auto-start a newly created worktree
+		if m.pendingAutoStart && m.autoStartWorktreePath != "" {
+			m.pendingAutoStart = false
+			// Find the instance matching the worktree path
+			for i, status := range m.instancesStatus {
+				if status.Path == m.autoStartWorktreePath {
+					m.selectedInstance = &m.instancesStatus[i].ContainerInstance
+					m.cursor = i
+					m.autoStartWorktreePath = ""
+					// Start the container
+					m.state = StateContainerStarting
+					return m, tea.Batch(m.spinner.Tick, m.startContainer())
+				}
+			}
+			// If not found, clear and go to dashboard
+			m.autoStartWorktreePath = ""
+		}
+
 		m.state = StateDashboard
 		return m, nil
 
@@ -193,6 +223,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Worktree deleted, refresh instances
 		m.state = StateDiscovering
 		m.selectedInstance = nil
+		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
+
+	case githubIssuesLoadedMsg:
+		m.githubIssues = msg.issues
+		m.githubRepoOwner = msg.owner
+		m.githubRepoName = msg.repo
+		m.state = StateGitHubIssuesList
+		m.cursor = 0
+		return m, nil
+
+	case githubIssuesErrorMsg:
+		m.state = StateError
+		m.err = msg.err
+		m.errHint = "Press any key to go back"
+		return m, nil
+
+	case githubIssueDetailLoadedMsg:
+		// Update selected issue with body
+		if m.selectedIssue != nil {
+			m.selectedIssue.Body = msg.body
+		}
+		m.state = StateGitHubIssueDetail
+		return m, nil
+
+	case githubWorktreeCreatedMsg:
+		// Worktree created from issue, refresh and auto-start
+		m.githubIssues = nil
+		m.selectedIssue = nil
+		// Set up auto-start for after discovery completes
+		m.pendingAutoStart = true
+		m.autoStartWorktreePath = msg.worktreePath
+		m.state = StateDiscovering
 		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
 	}
 
@@ -289,6 +351,33 @@ func (m Model) View() string {
 
 	case StateShowConfig:
 		return RenderConfigDisplay(m.config)
+
+	case StateGitHubIssuesLoading:
+		return RenderGitHubIssuesLoading(m.spinner.View())
+
+	case StateGitHubIssuesList:
+		return RenderGitHubIssuesList(m.githubIssues, m.cursor, m.githubRepoOwner, m.githubRepoName, m.width)
+
+	case StateGitHubIssueDetailLoading:
+		issueNum := 0
+		if m.selectedIssue != nil {
+			issueNum = m.selectedIssue.Number
+		}
+		return RenderGitHubIssueDetailLoading(issueNum, m.spinner.View())
+
+	case StateGitHubIssueDetail:
+		body := ""
+		if m.selectedIssue != nil {
+			body = m.selectedIssue.Body
+		}
+		return RenderGitHubIssueDetail(m.selectedIssue, body, m.width)
+
+	case StateGitHubWorktreeCreating:
+		issueNum := 0
+		if m.selectedIssue != nil {
+			issueNum = m.selectedIssue.Number
+		}
+		return RenderGitHubWorktreeCreating(issueNum, m.spinner.View())
 	}
 
 	return ""

@@ -26,6 +26,10 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNewSessionInputKey(msg)
 	case StateNewWorktreeInput:
 		return m.handleNewWorktreeInputKey(msg)
+	case StateGitHubIssuesList:
+		return m.handleGitHubIssuesListKey(msg)
+	case StateGitHubIssueDetail:
+		return m.handleGitHubIssueDetailKey(msg)
 	case StateError:
 		// Any key returns to container select
 		m.state = StateDashboard
@@ -136,6 +140,22 @@ func (m Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.darkMode = !m.darkMode
 		ApplyTheme(m.darkMode)
 		return m, nil
+
+	case "g":
+		// Open GitHub Issues - requires selecting a git project first
+		if len(m.instancesStatus) > 0 {
+			selected := &m.instancesStatus[m.cursor].ContainerInstance
+			// Only allow for git repositories
+			if selected.Worktree == nil {
+				m.state = StateError
+				m.err = fmt.Errorf("cannot open GitHub issues: not a git repository")
+				m.errHint = "Press any key to go back"
+				return m, nil
+			}
+			m.selectedInstance = selected
+			m.state = StateGitHubIssuesLoading
+			return m, tea.Batch(m.spinner.Tick, m.loadGitHubIssues())
+		}
 	}
 	return m, nil
 }
@@ -319,6 +339,91 @@ func (m Model) handleConfirmDeleteWorktreeKey(msg tea.KeyMsg) (tea.Model, tea.Cm
 		return m, nil
 	case "ctrl+c":
 		return m, tea.Quit
+	}
+	return m, nil
+}
+
+func (m Model) handleGitHubIssuesListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		// Go back to dashboard
+		m.state = StateDashboard
+		m.githubIssues = nil
+		m.selectedIssue = nil
+		m.cursor = 0
+		return m, nil
+
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+
+	case "down", "j":
+		if m.cursor < len(m.githubIssues)-1 {
+			m.cursor++
+		}
+
+	case "r":
+		// Refresh issues
+		m.state = StateGitHubIssuesLoading
+		return m, tea.Batch(m.spinner.Tick, m.loadGitHubIssues())
+
+	case "enter":
+		// Create worktree from selected issue
+		if len(m.githubIssues) > 0 && m.cursor < len(m.githubIssues) {
+			m.selectedIssue = &m.githubIssues[m.cursor]
+			m.state = StateGitHubWorktreeCreating
+			return m, tea.Batch(
+				m.spinner.Tick,
+				m.createWorktreeFromIssue(),
+			)
+		}
+
+	case "v":
+		// View issue details
+		if len(m.githubIssues) > 0 && m.cursor < len(m.githubIssues) {
+			m.selectedIssue = &m.githubIssues[m.cursor]
+			m.state = StateGitHubIssueDetailLoading
+			return m, tea.Batch(m.spinner.Tick, m.loadGitHubIssueDetail())
+		}
+
+	case "t":
+		// Toggle theme
+		m.darkMode = !m.darkMode
+		ApplyTheme(m.darkMode)
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m Model) handleGitHubIssueDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		// Go back to issues list
+		m.state = StateGitHubIssuesList
+		return m, nil
+
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "enter":
+		// Create worktree from this issue
+		if m.selectedIssue != nil {
+			m.state = StateGitHubWorktreeCreating
+			return m, tea.Batch(
+				m.spinner.Tick,
+				m.createWorktreeFromIssue(),
+			)
+		}
+
+	case "t":
+		// Toggle theme
+		m.darkMode = !m.darkMode
+		ApplyTheme(m.darkMode)
+		return m, nil
 	}
 	return m, nil
 }

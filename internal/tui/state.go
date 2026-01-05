@@ -50,4 +50,14 @@ const (
 	StateConfirmDeleteWorktree
 	// StateDeletingWorktree is shown while deleting a git worktree
 	StateDeletingWorktree
+	// StateGitHubIssuesLoading is shown while fetching issues from GitHub
+	StateGitHubIssuesLoading
+	// StateGitHubIssuesList displays the list of GitHub issues
+	StateGitHubIssuesList
+	// StateGitHubIssueDetailLoading is shown while loading issue details
+	StateGitHubIssueDetailLoading
+	// StateGitHubIssueDetail displays a single issue's details
+	StateGitHubIssueDetail
+	// StateGitHubWorktreeCreating is shown while creating worktree from issue
+	StateGitHubWorktreeCreating
 )

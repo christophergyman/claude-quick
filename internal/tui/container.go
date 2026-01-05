@@ -213,7 +213,8 @@ func RenderDashboard(instances []devcontainer.ContainerInstanceWithStatus, curso
 	b.WriteString("\n")
 
 	// Key bindings - second row with right-aligned detach hint
-	leftKeys := fmt.Sprintf("  %s  %s  %s  %s",
+	leftKeys := fmt.Sprintf("  %s  %s  %s  %s  %s",
+		RenderKeyBinding("g", "issues"),
 		RenderKeyBinding("R", "refresh"),
 		RenderKeyBinding("t", "theme"),
 		RenderKeyBinding("?", "config"),
