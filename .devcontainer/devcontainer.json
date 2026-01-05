@@ -5,13 +5,14 @@
     "context": ".."
   },
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {}
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "containerEnv": {
     "TERM": "xterm-256color",
     "LANG": "en_US.UTF-8"
   },
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && go build -o claude-quick .",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code @devcontainers/cli && go build -o claude-quick .",
   "customizations": {
     "vscode": {
       "extensions": [
