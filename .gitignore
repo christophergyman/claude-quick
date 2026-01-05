@@ -12,3 +12,6 @@ claude-quick
 
 # Credentials
 .claude-quick-auth
+
+# Config (contains personal paths)
+claude-quick.yaml
