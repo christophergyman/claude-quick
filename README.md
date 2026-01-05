@@ -38,10 +38,19 @@ cd claude-quick
 go build -o claude-quick .
 ```
 
-**Build Script** (builds + symlinks to ~/.local/bin)
+**Build Script** (runs tests, builds, symlinks to ~/.local/bin)
 ```bash
 ./build.sh
 ```
+
+## Testing
+
+Run the test suite:
+```bash
+go test ./...
+```
+
+Tests cover: auth, config, devcontainer discovery, TUI helpers, and utilities.
 
 ## Usage
 

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+
+	"github.com/christophergyman/claude-quick/internal/util"
 )
 
 // ResolveResult contains resolved credentials and any errors encountered.
@@ -94,7 +95,7 @@ func resolveCredential(cred Credential) (string, error) {
 
 // resolveFileSource reads a credential from a file.
 func resolveFileSource(path string) (string, error) {
-	expandedPath := expandPath(path)
+	expandedPath := util.ExpandPath(path)
 	data, err := os.ReadFile(expandedPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read credential file %s: %w", path, err)
@@ -120,19 +121,4 @@ func resolveCommandSource(command string) (string, error) {
 		return "", fmt.Errorf("failed to run credential command: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
-}
-
-// expandPath expands ~ to the user's home directory.
-func expandPath(path string) string {
-	if len(path) == 0 {
-		return path
-	}
-	if path[0] == '~' {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[1:])
-	}
-	return path
 }
