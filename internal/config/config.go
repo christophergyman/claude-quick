@@ -28,6 +28,7 @@ type Config struct {
 	ContainerTimeout   int         `yaml:"container_timeout_seconds"`
 	LaunchCommand      string      `yaml:"launch_command,omitempty"`
 	DarkMode           *bool       `yaml:"dark_mode,omitempty"`
+	AutoPushWorktree   *bool       `yaml:"auto_push_worktree,omitempty"`
 	Auth               auth.Config `yaml:"auth,omitempty"`
 }
 
@@ -133,4 +134,12 @@ func (c *Config) IsDarkMode() bool {
 		return true // Default to dark mode for backwards compatibility
 	}
 	return *c.DarkMode
+}
+
+// IsAutoPushWorktree returns whether to auto-push new worktree branches upstream
+func (c *Config) IsAutoPushWorktree() bool {
+	if c.AutoPushWorktree == nil {
+		return true // Default to enabled
+	}
+	return *c.AutoPushWorktree
 }

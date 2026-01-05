@@ -135,17 +135,17 @@ func GetMainRepo(worktreePath string) (string, error) {
 }
 
 // CreateWorktree creates a new git worktree with a new branch
-// Returns the path to the new worktree directory
-func CreateWorktree(repoPath, branchName string) (string, error) {
+// Returns the path to the new worktree directory and any push warning
+func CreateWorktree(repoPath, branchName string, autoPush bool) (worktreePath string, pushWarning string, err error) {
 	// Validate branch name
 	if err := ValidateBranchName(branchName); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Check if this is a git repository
 	wtInfo := IsGitWorktree(repoPath)
 	if wtInfo == nil {
-		return "", fmt.Errorf("not a git repository")
+		return "", "", fmt.Errorf("not a git repository")
 	}
 
 	// Get the main repo path
@@ -160,11 +160,11 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 	// Replace "/" with "-" to avoid creating nested directories for hierarchical branches
 	repoName := filepath.Base(mainRepo)
 	safeBranchName := strings.ReplaceAll(branchName, "/", "-")
-	worktreePath := filepath.Join(filepath.Dir(mainRepo), repoName+"-"+safeBranchName)
+	wtPath := filepath.Join(filepath.Dir(mainRepo), repoName+"-"+safeBranchName)
 
 	// Check if worktree already exists
-	if _, err := os.Stat(worktreePath); err == nil {
-		return "", fmt.Errorf("worktree directory already exists: %s", worktreePath)
+	if _, err := os.Stat(wtPath); err == nil {
+		return "", "", fmt.Errorf("worktree directory already exists: %s", wtPath)
 	}
 
 	// Check if branch already exists
@@ -174,18 +174,29 @@ func CreateWorktree(repoPath, branchName string) (string, error) {
 	// Create the worktree - use existing branch or create new one
 	var cmd *exec.Cmd
 	if branchExists {
-		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", worktreePath, branchName)
+		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", wtPath, branchName)
 	} else {
-		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", "-b", branchName, worktreePath)
+		cmd = exec.Command("git", "-C", mainRepo, "worktree", "add", "-b", branchName, wtPath)
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to create worktree: %s", stderr.String())
+		return "", "", fmt.Errorf("failed to create worktree: %s", stderr.String())
 	}
 
-	return worktreePath, nil
+	// Push new branch upstream with tracking if enabled and branch is new
+	if autoPush && !branchExists {
+		pushCmd := exec.Command("git", "-C", mainRepo, "push", "-u", "origin", branchName)
+		var pushStderr bytes.Buffer
+		pushCmd.Stderr = &pushStderr
+		if err := pushCmd.Run(); err != nil {
+			pushWarning = fmt.Sprintf("Branch created but push failed: %s",
+				strings.TrimSpace(pushStderr.String()))
+		}
+	}
+
+	return wtPath, pushWarning, nil
 }
 
 // RemoveWorktree removes a git worktree

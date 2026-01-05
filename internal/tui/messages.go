@@ -48,6 +48,7 @@ type tmuxDetachedMsg struct{}
 // worktreeCreatedMsg is sent when a new git worktree is created
 type worktreeCreatedMsg struct {
 	worktreePath string
+	pushWarning  string
 }
 
 // worktreeDeletedMsg is sent when a git worktree is deleted

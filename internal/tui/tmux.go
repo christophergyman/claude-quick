@@ -12,7 +12,7 @@ import (
 const newSessionOption = "[+ New Session]"
 
 // RenderTmuxSelect renders the tmux session selection view
-func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, authWarning string) string {
+func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, warning string) string {
 	width := defaultWidth
 
 	var b strings.Builder
@@ -21,9 +21,9 @@ func RenderTmuxSelect(projectName string, sessions []tmux.Session, cursor int, a
 	b.WriteString(RenderBorderedHeader("claude-quick", "tmux Sessions: "+projectName, width))
 	b.WriteString("\n\n")
 
-	// Show auth warning if present
-	if authWarning != "" {
-		b.WriteString(WarningStyle.Render("Auth warning: " + authWarning))
+	// Show warning if present
+	if warning != "" {
+		b.WriteString(WarningStyle.Render("Warning: " + warning))
 		b.WriteString("\n\n")
 	}
 

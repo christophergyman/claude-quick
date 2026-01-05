@@ -29,7 +29,7 @@ type Model struct {
 	height           int
 	config           *config.Config
 	previousState    State
-	authWarning      string // Warning message if auth credentials failed to resolve
+	warning          string // Warning message (auth, push failures, etc.)
 	darkMode         bool   // Current theme mode (true = dark, false = light)
 }
 
@@ -151,7 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.spinner.Tick, m.refreshInstanceStatus())
 
 	case containerStartedMsg:
-		m.authWarning = msg.authWarning
+		m.warning = msg.authWarning
 		return m.handleContainerStarted()
 
 	case containerErrorMsg:
@@ -185,6 +185,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.spinner.Tick, m.loadTmuxSessions())
 
 	case worktreeCreatedMsg:
+		// Store push warning for display (clear any previous warning)
+		m.warning = msg.pushWarning
 		// Worktree created, refresh instances
 		m.state = StateDiscovering
 		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
@@ -223,7 +225,7 @@ func (m Model) View() string {
 		return RenderRefreshingStatus(m.spinner.View())
 
 	case StateDashboard:
-		return RenderDashboard(m.instancesStatus, m.cursor, m.width)
+		return RenderDashboard(m.instancesStatus, m.cursor, m.width, m.warning)
 
 	case StateContainerStarting:
 		return RenderContainerStarting(m.getInstanceName(), m.spinner.View())
@@ -256,7 +258,7 @@ func (m Model) View() string {
 		return RenderLoadingTmuxSessions(m.getInstanceName(), m.spinner.View())
 
 	case StateTmuxSelect:
-		return RenderTmuxSelect(m.getInstanceName(), m.tmuxSessions, m.cursor, m.authWarning)
+		return RenderTmuxSelect(m.getInstanceName(), m.tmuxSessions, m.cursor, m.warning)
 
 	case StateNewSessionInput:
 		return RenderNewSessionInput(m.getInstanceName(), m.textInput)
