@@ -1,12 +1,15 @@
 package tui
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/christophergyman/claude-quick/internal/auth"
 	"github.com/christophergyman/claude-quick/internal/config"
 	"github.com/christophergyman/claude-quick/internal/constants"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
@@ -44,6 +47,22 @@ type Model struct {
 	// Auto-start state (for GitHub issue worktree creation)
 	pendingAutoStart      bool   // Whether to auto-start after discovery
 	autoStartWorktreePath string // Path of newly created worktree to auto-start
+
+	// Wizard state for guided configuration setup
+	wizardSearchPaths   []string          // Editable search paths list
+	wizardPathInput     textinput.Model   // Input for adding search paths
+	wizardCredSource    auth.SourceType   // Selected credential source (file/env/command)
+	wizardCredValue     textinput.Model   // Credential value input
+	wizardCredentials   []auth.Credential // Credentials being configured
+	wizardSessionInput  textinput.Model   // Default session name input
+	wizardTimeoutInput  textinput.Model   // Container timeout input
+	wizardLaunchInput   textinput.Model   // Launch command input
+	wizardMaxDepthInput textinput.Model   // Max search depth input
+	wizardDarkMode      bool              // Dark mode toggle
+	wizardCursor        int               // Cursor for list navigation in wizard
+	wizardEditMode      bool              // Whether currently editing a field
+	wizardPathWarnings  map[string]bool   // Map of path -> exists (false means warning)
+	wizardFromDashboard bool              // Whether wizard was launched from dashboard
 }
 
 // getInstanceName safely returns the selected instance display name
@@ -119,6 +138,61 @@ func NewWithDiscovery(cfg *config.Config) Model {
 		config:        cfg,
 		darkMode:      darkMode,
 	}
+}
+
+// NewWithWizard creates a Model that starts with the configuration wizard
+func NewWithWizard(cfg *config.Config) Model {
+	// Initialize theme from config
+	darkMode := cfg.IsDarkMode()
+	ApplyTheme(darkMode)
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = SpinnerStyle
+
+	m := Model{
+		state:         StateWizardWelcome,
+		instances:     nil,
+		spinner:       s,
+		textInput:     newTextInput(cfg.DefaultSessionName),
+		worktreeInput: newTextInput(constants.DefaultWorktreePlaceholder),
+		config:        cfg,
+		darkMode:      darkMode,
+	}
+
+	// Initialize wizard state
+	m.initWizardState(cfg)
+
+	return m
+}
+
+// initWizardState initializes wizard fields from a config
+func (m *Model) initWizardState(cfg *config.Config) {
+	// Initialize wizard inputs
+	m.wizardPathInput = newTextInput("~/projects")
+	m.wizardCredValue = newTextInput("~/.github_token")
+	m.wizardSessionInput = newTextInput(constants.DefaultSessionName)
+	m.wizardTimeoutInput = newTextInput("300")
+	m.wizardLaunchInput = newTextInput("claude")
+	m.wizardMaxDepthInput = newTextInput("3")
+
+	// Initialize wizard state from config
+	m.wizardSearchPaths = make([]string, len(cfg.SearchPaths))
+	copy(m.wizardSearchPaths, cfg.SearchPaths)
+
+	m.wizardCredentials = make([]auth.Credential, len(cfg.Auth.Credentials))
+	copy(m.wizardCredentials, cfg.Auth.Credentials)
+
+	m.wizardDarkMode = cfg.IsDarkMode()
+	m.wizardPathWarnings = make(map[string]bool)
+
+	// Set input values from config
+	m.wizardSessionInput.SetValue(cfg.DefaultSessionName)
+	m.wizardTimeoutInput.SetValue(fmt.Sprintf("%d", cfg.ContainerTimeout))
+	m.wizardLaunchInput.SetValue(cfg.LaunchCommand)
+	m.wizardMaxDepthInput.SetValue(fmt.Sprintf("%d", cfg.MaxDepth))
+
+	m.wizardCredSource = auth.SourceFile
 }
 
 // Init implements tea.Model
@@ -273,6 +347,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.autoStartWorktreePath = msg.worktreePath
 		m.state = StateDiscovering
 		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
+
+	case wizardPathValidatedMsg:
+		// Update path validation warnings
+		if m.wizardPathWarnings == nil {
+			m.wizardPathWarnings = make(map[string]bool)
+		}
+		m.wizardPathWarnings[msg.path] = msg.exists
+		return m, nil
+
+	case wizardConfigSavedMsg:
+		// Config saved successfully, reload and go to dashboard
+		newCfg, err := config.Load()
+		if err != nil {
+			m.state = StateError
+			m.err = err
+			m.errHint = "Press any key to go back"
+			return m, nil
+		}
+		m.config = newCfg
+		m.state = StateDiscovering
+		return m, tea.Batch(m.spinner.Tick, m.discoverInstances())
+
+	case wizardConfigErrorMsg:
+		m.state = StateError
+		m.err = msg.err
+		m.errHint = "Press any key to go back"
+		return m, nil
 	}
 
 	// Update text input if in input state
@@ -395,6 +496,65 @@ func (m Model) View() string {
 			issueNum = m.selectedIssue.Number
 		}
 		return RenderGitHubWorktreeCreating(issueNum, m.spinner.View())
+
+	case StateWizardWelcome:
+		return RenderWizardWelcome(m.width)
+
+	case StateWizardSearchPaths:
+		return RenderWizardSearchPaths(m.wizardSearchPaths, m.wizardPathWarnings, m.wizardCursor, m.wizardPathInput, m.wizardEditMode, m.width)
+
+	case StateWizardCredentials:
+		return RenderWizardCredentials(m.wizardCredentials, m.wizardCredSource, m.wizardCredValue, m.wizardCursor, m.wizardEditMode, m.width)
+
+	case StateWizardSettings:
+		var activeInput textinput.Model
+		switch m.wizardCursor {
+		case 0:
+			activeInput = m.wizardSessionInput
+		case 1:
+			activeInput = m.wizardTimeoutInput
+		case 2:
+			activeInput = m.wizardLaunchInput
+		case 3:
+			activeInput = m.wizardMaxDepthInput
+		}
+		return RenderWizardSettings(
+			m.wizardSessionInput.Value(),
+			m.wizardTimeoutInput.Value(),
+			m.wizardLaunchInput.Value(),
+			m.wizardMaxDepthInput.Value(),
+			m.wizardDarkMode,
+			m.wizardCursor,
+			m.wizardEditMode,
+			activeInput,
+			m.width,
+		)
+
+	case StateWizardSummary:
+		configPath, _ := getWizardConfigPath()
+		// Show validated values (what will actually be saved)
+		timeout := m.wizardTimeoutInput.Value()
+		if t, err := strconv.Atoi(timeout); err != nil || t <= 0 {
+			timeout = strconv.Itoa(constants.DefaultContainerTimeout)
+		}
+		maxDepth := m.wizardMaxDepthInput.Value()
+		if d, err := strconv.Atoi(maxDepth); err != nil || d <= 0 {
+			maxDepth = strconv.Itoa(constants.DefaultMaxDepth)
+		}
+		return RenderWizardSummary(
+			m.wizardSearchPaths,
+			m.wizardCredentials,
+			m.wizardSessionInput.Value(),
+			timeout,
+			m.wizardLaunchInput.Value(),
+			maxDepth,
+			m.wizardDarkMode,
+			configPath,
+			m.width,
+		)
+
+	case StateWizardSaving:
+		return RenderWizardSaving(m.spinner.View())
 	}
 
 	return ""

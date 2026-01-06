@@ -236,3 +236,41 @@ func (c *Config) IsAutoPushWorktree() bool {
 	}
 	return *c.AutoPushWorktree
 }
+
+// ConfigExists returns true if a config file exists (either new or legacy location)
+func ConfigExists() bool {
+	_, source := configPath()
+	return source != ConfigSourceDefault
+}
+
+// GetExecutableDirConfigPath returns the path where new config should be saved
+// (in the same directory as the executable)
+func GetExecutableDirConfigPath() (string, error) {
+	execDir, err := executableDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(execDir, "claude-quick.yaml"), nil
+}
+
+// Save writes the configuration to the specified path
+func Save(cfg *Config, path string) error {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Marshal config to YAML
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// Write file with appropriate permissions
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}

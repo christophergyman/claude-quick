@@ -19,6 +19,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Check if this is first run (no config file exists)
+	if !config.ConfigExists() {
+		// Launch wizard for first-time setup
+		model := tui.NewWithWizard(cfg)
+		p := tea.NewProgram(model, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running wizard: %v\n", err)
+			os.Exit(1)
+		}
+		// Wizard completed or was cancelled, exit
+		// The wizard will transition to dashboard after saving config
+		return
+	}
+
 	// Check for devcontainer CLI
 	if err := devcontainer.CheckCLI(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

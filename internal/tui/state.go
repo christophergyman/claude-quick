@@ -60,4 +60,18 @@ const (
 	StateGitHubIssueDetail
 	// StateGitHubWorktreeCreating is shown while creating worktree from issue
 	StateGitHubWorktreeCreating
+
+	// Wizard states for guided configuration setup
+	// StateWizardWelcome is the introduction screen for the setup wizard
+	StateWizardWelcome
+	// StateWizardSearchPaths is where users configure directories to scan
+	StateWizardSearchPaths
+	// StateWizardCredentials is where users configure optional credentials (GITHUB_TOKEN)
+	StateWizardCredentials
+	// StateWizardSettings is where users configure default settings
+	StateWizardSettings
+	// StateWizardSummary shows the configuration summary before saving
+	StateWizardSummary
+	// StateWizardSaving is shown while saving the configuration
+	StateWizardSaving
 )

@@ -39,6 +39,10 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Any key returns to previous state
 		m.state = m.previousState
 		return m, nil
+
+	case StateWizardWelcome, StateWizardSearchPaths, StateWizardCredentials,
+		StateWizardSettings, StateWizardSummary:
+		return m.handleWizardKey(msg)
 	}
 	return m, nil
 }
@@ -156,6 +160,14 @@ func (m Model) handleDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = StateGitHubIssuesLoading
 			return m, tea.Batch(m.spinner.Tick, m.loadGitHubIssues())
 		}
+
+	case "w":
+		// Open configuration wizard
+		m.wizardFromDashboard = true
+		m.initWizardState(m.config)
+		m.state = StateWizardWelcome
+		// Validate existing paths
+		return m, m.validateAllWizardPaths()
 	}
 	return m, nil
 }

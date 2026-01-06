@@ -88,3 +88,19 @@ type tmuxNotFoundError struct{}
 func (e *tmuxNotFoundError) Error() string {
 	return "tmux not found in container. Please install tmux in your devcontainer."
 }
+
+// wizardConfigSavedMsg is sent when the wizard configuration is successfully saved
+type wizardConfigSavedMsg struct {
+	configPath string
+}
+
+// wizardConfigErrorMsg is sent when saving wizard configuration fails
+type wizardConfigErrorMsg struct {
+	err error
+}
+
+// wizardPathValidatedMsg is sent when a search path has been validated
+type wizardPathValidatedMsg struct {
+	path   string
+	exists bool
+}

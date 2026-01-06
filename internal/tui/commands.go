@@ -3,13 +3,18 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/christophergyman/claude-quick/internal/auth"
+	"github.com/christophergyman/claude-quick/internal/config"
+	"github.com/christophergyman/claude-quick/internal/constants"
 	"github.com/christophergyman/claude-quick/internal/devcontainer"
 	"github.com/christophergyman/claude-quick/internal/github"
+	"github.com/christophergyman/claude-quick/internal/util"
 )
 
 // Common errors for nil checks
@@ -344,4 +349,105 @@ func (m Model) createWorktreeFromIssue() tea.Cmd {
 			labelWarning: labelWarning,
 		}
 	}
+}
+
+// validateWizardPath checks if a path exists
+func (m Model) validateWizardPath(path string) tea.Cmd {
+	return func() tea.Msg {
+		expanded := util.ExpandPath(path)
+		info, err := os.Stat(expanded)
+		exists := err == nil && info.IsDir()
+
+		return wizardPathValidatedMsg{
+			path:   path,
+			exists: exists,
+		}
+	}
+}
+
+// validateAllWizardPaths validates all current wizard search paths
+func (m Model) validateAllWizardPaths() tea.Cmd {
+	if len(m.wizardSearchPaths) == 0 {
+		return nil
+	}
+
+	// Create commands to validate each path
+	cmds := make([]tea.Cmd, len(m.wizardSearchPaths))
+	for i, path := range m.wizardSearchPaths {
+		p := path // capture for closure
+		cmds[i] = func() tea.Msg {
+			expanded := util.ExpandPath(p)
+			info, err := os.Stat(expanded)
+			exists := err == nil && info.IsDir()
+			return wizardPathValidatedMsg{path: p, exists: exists}
+		}
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// saveWizardConfig saves the wizard configuration to disk
+func (m Model) saveWizardConfig() tea.Cmd {
+	return func() tea.Msg {
+		// Get config path
+		configPath, err := config.GetExecutableDirConfigPath()
+		if err != nil {
+			return wizardConfigErrorMsg{err: err}
+		}
+
+		// Build config from wizard state
+		cfg := m.buildWizardConfig()
+
+		// Save config
+		if err := config.Save(cfg, configPath); err != nil {
+			return wizardConfigErrorMsg{err: err}
+		}
+
+		return wizardConfigSavedMsg{configPath: configPath}
+	}
+}
+
+// buildWizardConfig creates a Config from wizard state
+func (m Model) buildWizardConfig() *config.Config {
+	// Parse timeout
+	timeout, err := strconv.Atoi(m.wizardTimeoutInput.Value())
+	if err != nil || timeout <= 0 {
+		timeout = constants.DefaultContainerTimeout
+	}
+
+	// Parse max depth
+	maxDepth, err := strconv.Atoi(m.wizardMaxDepthInput.Value())
+	if err != nil || maxDepth <= 0 {
+		maxDepth = constants.DefaultMaxDepth
+	}
+
+	// Session name with default
+	sessionName := m.wizardSessionInput.Value()
+	if sessionName == "" {
+		sessionName = constants.DefaultSessionName
+	}
+
+	// Launch command
+	launchCmd := m.wizardLaunchInput.Value()
+
+	cfg := &config.Config{
+		SearchPaths:        m.wizardSearchPaths,
+		MaxDepth:           maxDepth,
+		ExcludedDirs:       constants.DefaultExcludedDirs(),
+		DefaultSessionName: sessionName,
+		ContainerTimeout:   timeout,
+		LaunchCommand:      launchCmd,
+		DarkMode:           &m.wizardDarkMode,
+		Auth: auth.Config{
+			Credentials: m.wizardCredentials,
+		},
+		GitHub: github.DefaultConfig(),
+	}
+
+	return cfg
+}
+
+// getWizardConfigPath returns the path where wizard config will be saved
+func getWizardConfigPath() (string, error) {
+	return config.GetExecutableDirConfigPath()
 }
