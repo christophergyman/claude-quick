@@ -88,12 +88,12 @@ func TestExpandPath_TildeExpansion(t *testing.T) {
 	}
 }
 
-func TestGetHomeDir(t *testing.T) {
-	result := getHomeDir()
+func TestHomeDir(t *testing.T) {
+	result := HomeDir()
 
 	// Should return a non-empty string
 	if result == "" {
-		t.Error("getHomeDir() returned empty string")
+		t.Error("HomeDir() returned empty string")
 	}
 
 	// Should be a valid directory path (either home or temp)
@@ -102,9 +102,9 @@ func TestGetHomeDir(t *testing.T) {
 
 	if homeErr == nil && result != homeDir {
 		// If we can get home dir, result should match
-		t.Errorf("getHomeDir() = %q, want %q", result, homeDir)
+		t.Errorf("HomeDir() = %q, want %q", result, homeDir)
 	} else if homeErr != nil && result != tempDir {
 		// If home dir fails, should fall back to temp
-		t.Errorf("getHomeDir() = %q, want temp dir %q", result, tempDir)
+		t.Errorf("HomeDir() = %q, want temp dir %q", result, tempDir)
 	}
 }

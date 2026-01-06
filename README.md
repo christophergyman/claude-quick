@@ -3,17 +3,6 @@
 ![Claude Quick](claude-quick-pic.png)
 A terminal UI for managing tmux sessions across your devcontainers.
 
-
-## Quick Start
-
-```bash
-# Install
-go install github.com/christophergyman/claude-quick@latest
-
-# Run
-claude-quick
-```
-
 ## Requirements
 
 - Go 1.25+
@@ -23,21 +12,25 @@ claude-quick
 
 ## Installation
 
-**Go Install** (recommended)
 ```bash
 go install github.com/christophergyman/claude-quick@latest
 ```
 
-**Build from Source**
+Or build from source:
 ```bash
 git clone https://github.com/christophergyman/claude-quick.git
 cd claude-quick
 go build -o claude-quick .
 ```
 
-**Build Script** (runs tests, builds, symlinks to ~/.local/bin)
+Or use the build script (runs tests, builds, symlinks to ~/.local/bin):
 ```bash
 ./build.sh
+```
+
+Then run:
+```bash
+claude-quick
 ```
 
 ## Testing

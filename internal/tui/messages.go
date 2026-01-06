@@ -79,6 +79,7 @@ type githubWorktreeCreatedMsg struct {
 	worktreePath string
 	branchName   string
 	pushWarning  string
+	labelWarning string // Warning if label addition failed
 }
 
 // tmuxNotFoundError indicates tmux is not available in the container

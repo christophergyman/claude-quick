@@ -93,23 +93,6 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func TestGetHomeDir(t *testing.T) {
-	result := getHomeDir()
-
-	// Should return a non-empty string
-	if result == "" {
-		t.Error("getHomeDir() returned empty string")
-	}
-
-	// Should be either home dir or temp dir
-	homeDir, _ := os.UserHomeDir()
-	tempDir := os.TempDir()
-
-	if result != homeDir && result != tempDir {
-		t.Errorf("getHomeDir() = %q, expected home dir %q or temp dir %q", result, homeDir, tempDir)
-	}
-}
-
 func TestLoad_NonexistentFile(t *testing.T) {
 	// Load should return defaults when file doesn't exist
 	// This test assumes the config file doesn't exist in the test environment

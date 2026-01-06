@@ -70,7 +70,10 @@ func DefaultExcludedDirs() []string {
 
 // GitHub integration constants
 const (
-	DefaultMaxIssues      = 50        // Maximum number of issues to fetch
-	DefaultBranchPrefix   = "issue-"  // Prefix for auto-generated branch names
-	MaxBranchNameLength   = 50        // Maximum length for branch names
+	DefaultMaxIssues        = 50                                  // Maximum number of issues to fetch
+	DefaultBranchPrefix     = "issue-"                            // Prefix for auto-generated branch names
+	MaxBranchNameLength     = 50                                  // Maximum length for branch names
+	DefaultInProgressLabel  = "in-progress"                       // Default label for issues being worked on
+	DefaultLabelColor       = "fbca04"                            // Yellow color for in-progress label
+	DefaultLabelDescription = "Issue is being actively worked on" // Description for auto-created label
 )

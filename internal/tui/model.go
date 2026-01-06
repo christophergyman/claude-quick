@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -328,6 +329,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Worktree created from issue, refresh and auto-start
 		m.githubIssues = nil
 		m.selectedIssue = nil
+
+		// Combine warnings for display
+		var warnings []string
+		if msg.pushWarning != "" {
+			warnings = append(warnings, msg.pushWarning)
+		}
+		if msg.labelWarning != "" {
+			warnings = append(warnings, msg.labelWarning)
+		}
+		if len(warnings) > 0 {
+			m.warning = strings.Join(warnings, "; ")
+		}
+
 		// Set up auto-start for after discovery completes
 		m.pendingAutoStart = true
 		m.autoStartWorktreePath = msg.worktreePath

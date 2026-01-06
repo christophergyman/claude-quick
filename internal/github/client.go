@@ -64,7 +64,7 @@ func FetchIssues(owner, repo string, cfg Config) ([]Issue, error) {
 		"--repo", fmt.Sprintf("%s/%s", owner, repo),
 		"--state", string(cfg.DefaultState),
 		"--limit", fmt.Sprintf("%d", cfg.MaxIssues),
-		"--json", "number,title,state,url",
+		"--json", "number,title,state,url,labels",
 	}
 
 	cmd := exec.Command("gh", args...)
@@ -114,5 +114,68 @@ func FetchIssueBody(owner, repo string, number int) (string, error) {
 	}
 
 	return result.Body, nil
+}
+
+// AddLabelToIssue adds a label to the specified issue.
+// If createIfMissing is true and the label doesn't exist, it will be created
+// with the specified color and description.
+func AddLabelToIssue(owner, repo string, issueNumber int, label, color, description string, createIfMissing bool) error {
+	if err := CheckCLI(); err != nil {
+		return err
+	}
+
+	// Try to add the label
+	args := []string{
+		"issue", "edit",
+		fmt.Sprintf("%d", issueNumber),
+		"--repo", fmt.Sprintf("%s/%s", owner, repo),
+		"--add-label", label,
+	}
+
+	cmd := exec.Command("gh", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		errStr := string(output)
+		// Check if error is due to missing label
+		// gh CLI returns errors like "'in-progress' not found" when label doesn't exist
+		if createIfMissing &&
+			(strings.Contains(strings.ToLower(errStr), "not found") ||
+				strings.Contains(strings.ToLower(errStr), "does not exist") ||
+				strings.Contains(strings.ToLower(errStr), "doesn't exist")) {
+			// Create the label first, then retry
+			if createErr := CreateLabel(owner, repo, label, color, description); createErr != nil {
+				return fmt.Errorf("failed to create label %q: %w", label, createErr)
+			}
+			// Retry adding the label
+			retryCmd := exec.Command("gh", args...)
+			if retryOutput, retryErr := retryCmd.CombinedOutput(); retryErr != nil {
+				return fmt.Errorf("failed to add label after creating it: %s", strings.TrimSpace(string(retryOutput)))
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to add label: %s", strings.TrimSpace(errStr))
+	}
+	return nil
+}
+
+// CreateLabel creates a new label in the repository with the specified color and description.
+func CreateLabel(owner, repo, label, color, description string) error {
+	if err := CheckCLI(); err != nil {
+		return err
+	}
+
+	args := []string{
+		"label", "create", label,
+		"--repo", fmt.Sprintf("%s/%s", owner, repo),
+		"--description", description,
+		"--color", color,
+		"--force", // Update if exists
+	}
+
+	cmd := exec.Command("gh", args...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create label: %s", strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 

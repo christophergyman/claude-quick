@@ -322,10 +322,31 @@ func (m Model) createWorktreeFromIssue() tea.Cmd {
 			return containerErrorMsg{err: err}
 		}
 
+		// Add "in-progress" label if enabled
+		var labelWarning string
+		if m.config.GitHub.IsAutoLabelEnabled() {
+			label := m.config.GitHub.InProgressLabel
+			if label == "" {
+				label = "in-progress"
+			}
+			if err := github.AddLabelToIssue(
+				m.githubRepoOwner,
+				m.githubRepoName,
+				m.selectedIssue.Number,
+				label,
+				m.config.GitHub.LabelColor,
+				m.config.GitHub.LabelDescription,
+				m.config.GitHub.ShouldCreateLabelIfMissing(),
+			); err != nil {
+				labelWarning = fmt.Sprintf("Failed to add '%s' label: %v", label, err)
+			}
+		}
+
 		return githubWorktreeCreatedMsg{
 			worktreePath: worktreePath,
 			branchName:   branchName,
 			pushWarning:  pushWarning,
+			labelWarning: labelWarning,
 		}
 	}
 }

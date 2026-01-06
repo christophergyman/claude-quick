@@ -112,9 +112,10 @@ var (
 
 // Status text styles with labels
 var (
-	StatusRunning = lipgloss.NewStyle().Foreground(currentPalette.success)
-	StatusStopped = lipgloss.NewStyle().Foreground(currentPalette.warning)
-	StatusUnknown = lipgloss.NewStyle().Foreground(currentPalette.dim)
+	StatusRunning    = lipgloss.NewStyle().Foreground(currentPalette.success)
+	StatusStopped    = lipgloss.NewStyle().Foreground(currentPalette.warning)
+	StatusUnknown    = lipgloss.NewStyle().Foreground(currentPalette.dim)
+	StatusInProgress = lipgloss.NewStyle().Foreground(currentPalette.orange)
 )
 
 // ApplyTheme updates all styles based on the dark mode setting
@@ -182,6 +183,7 @@ func ApplyTheme(darkMode bool) {
 	StatusRunning = lipgloss.NewStyle().Foreground(currentPalette.success)
 	StatusStopped = lipgloss.NewStyle().Foreground(currentPalette.warning)
 	StatusUnknown = lipgloss.NewStyle().Foreground(currentPalette.dim)
+	StatusInProgress = lipgloss.NewStyle().Foreground(currentPalette.orange)
 }
 
 // Cursor returns the selection cursor (› instead of >)

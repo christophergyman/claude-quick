@@ -20,7 +20,7 @@ func ListTmuxSessions(projectPath string) ([]string, error) {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return []string{}, nil
 		}
-		return nil, fmt.Errorf("ListTmuxSessions: %w", err)
+		return nil, fmt.Errorf("failed to list tmux sessions: %w", err)
 	}
 
 	var sessions []string

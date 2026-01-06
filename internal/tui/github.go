@@ -81,9 +81,11 @@ func renderIssueRow(b *strings.Builder, issue github.Issue, selected bool, width
 	// Format: #123   Title truncated...            open
 	numberStr := fmt.Sprintf("#%-5d", issue.Number)
 
-	// State indicator
+	// State indicator with priority: in-progress > open > closed
 	var stateIndicator string
-	if issue.State == github.IssueStateOpen {
+	if issue.HasLabel("in-progress") {
+		stateIndicator = StatusInProgress.Render("in-progress")
+	} else if issue.State == github.IssueStateOpen {
 		stateIndicator = StatusRunning.Render("open")
 	} else {
 		stateIndicator = StatusStopped.Render("closed")
@@ -148,9 +150,11 @@ func RenderGitHubIssueDetail(issue *github.Issue, body string, width int) string
 	b.WriteString(SelectedStyle.Render(issue.Title))
 	b.WriteString("\n\n")
 
-	// State indicator
+	// State indicator with priority: in-progress > open > closed
 	var stateText string
-	if issue.State == github.IssueStateOpen {
+	if issue.HasLabel("in-progress") {
+		stateText = StatusInProgress.Render("◆ in-progress")
+	} else if issue.State == github.IssueStateOpen {
 		stateText = StatusRunning.Render("● open")
 	} else {
 		stateText = StatusStopped.Render("○ closed")

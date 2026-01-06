@@ -141,6 +141,16 @@ auth:
         - name: API_KEY
           source: env
           value: MY_API_KEY
+
+github:
+  default_state: open              # Filter for issue list: open, closed, or all
+  branch_prefix: "issue-"          # Prefix for auto-generated branch names
+  max_issues: 50                   # Maximum issues to fetch
+  in_progress_label: "in-progress" # Label added when creating worktree from issue
+  label_color: "fbca04"            # Hex color for auto-created label (yellow)
+  label_description: "Issue is being actively worked on"  # Description for label
+  auto_label_issues: true          # Enable/disable auto-labeling (default: true)
+  create_label_if_missing: true    # Auto-create label if missing (default: true)
 ```
 
 ## Keybindings
