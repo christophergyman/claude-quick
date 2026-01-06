@@ -28,15 +28,6 @@ var configInfo struct {
 	Source ConfigSource
 }
 
-// getHomeDir returns the user's home directory with fallback to /tmp
-func getHomeDir() string {
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		return homeDir
-	}
-	// Fallback to /tmp if home directory cannot be determined
-	return os.TempDir()
-}
-
 // Config holds the application configuration
 type Config struct {
 	SearchPaths        []string      `yaml:"search_paths"`
@@ -59,7 +50,7 @@ func DefaultExcludedDirs() []string {
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		SearchPaths:        []string{getHomeDir()},
+		SearchPaths:        []string{util.HomeDir()},
 		MaxDepth:           constants.DefaultMaxDepth,
 		ExcludedDirs:       DefaultExcludedDirs(),
 		DefaultSessionName: constants.DefaultSessionName,
@@ -89,7 +80,7 @@ func executableDir() (string, error) {
 func legacyConfigPath() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		configDir = filepath.Join(getHomeDir(), ".config")
+		configDir = filepath.Join(util.HomeDir(), ".config")
 	}
 	return filepath.Join(configDir, "claude-quick", "config.yaml")
 }

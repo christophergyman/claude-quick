@@ -14,13 +14,13 @@ func ExpandPath(path string) string {
 		return path
 	}
 	if path[0] == '~' {
-		return filepath.Join(getHomeDir(), path[1:])
+		return filepath.Join(HomeDir(), path[1:])
 	}
 	return path
 }
 
-// getHomeDir returns the user's home directory with fallback to temp directory.
-func getHomeDir() string {
+// HomeDir returns the user's home directory with fallback to temp directory.
+func HomeDir() string {
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		return homeDir
 	}
