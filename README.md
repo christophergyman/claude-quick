@@ -1,55 +1,45 @@
 # Claude Quick
 
-![Claude Quick](claude-quick-pic.png)
-A terminal UI for managing tmux sessions across your devcontainers.
+TUI for orchestrating multiple Claude Code agents in devcontainers.
 
-## Requirements
+![Claude Quick Demo](claude-quick-nozoom.gif)
+
+## Features
+
+- **Unified Dashboard** - Discover and manage all your devcontainers from one place
+- **Git Worktree Isolation** - Work on multiple branches in separate containers simultaneously
+- **Credential Injection** - Securely pass API keys and tokens into containers
+- **Interactive Wizard** - Guided setup on first run, no manual config required
+
+## Prerequisites
 
 - Go 1.25+
 - Docker
 - [devcontainer CLI](https://github.com/devcontainers/cli) (`npm install -g @devcontainers/cli`)
-- tmux inside your devcontainers
+- tmux (inside your devcontainers)
 
-## Installation
+## Quickstart
 
 ```bash
+# Install
 go install github.com/christophergyman/claude-quick@latest
-```
 
-Or build from source:
-```bash
-git clone https://github.com/christophergyman/claude-quick.git
-cd claude-quick
-go build -o claude-quick .
-```
-
-Or use the build script (runs tests, builds, symlinks to ~/.local/bin):
-```bash
-./build.sh
-```
-
-Then run:
-```bash
+# Run
 claude-quick
 ```
 
-## Testing
+The setup wizard launches automatically on first run. Follow the prompts to configure your search paths, credentials, and settings.
 
-Run the test suite:
-```bash
-go test ./...
-```
+> **Tip:** Press `w` anytime to re-open the wizard and modify your configuration.
 
-Tests cover: auth, config, devcontainer discovery, TUI helpers, and utilities.
+## Configuration
 
-## Usage
+Configuration is stored in `claude-quick.yaml` next to the executable. The wizard handles this for you, but you can also edit it manually.
 
-1. Launch `claude-quick` to see all discovered devcontainers
-2. Select a container (starts it if stopped)
-3. Choose or create a tmux session
-4. Detach with `Ctrl+b d` to return to the dashboard
+See [`claude-quick.yaml.example`](claude-quick.yaml.example) for all available options.
 
-### Keybindings
+<details>
+<summary><strong>Keybindings</strong></summary>
 
 | Key | Action |
 |-----|--------|
@@ -58,56 +48,20 @@ Tests cover: auth, config, devcontainer discovery, TUI helpers, and utilities.
 | `x` | Stop container or session |
 | `r` | Restart |
 | `R` | Refresh status |
+| `w` | Open setup wizard |
 | `n` | New worktree |
 | `d` | Delete worktree |
 | `?` | Show config |
 | `q` / `Esc` | Back / Quit |
 
-## Git Worktrees
+</details>
 
-Claude Quick treats each git worktree as a separate devcontainer instance, allowing you to work on multiple branches simultaneously in isolated containers.
+<details>
+<summary><strong>Authentication</strong></summary>
 
-- **Create a worktree**: Press `n` on any git repository to create a new worktree from a branch
-- **Delete a worktree**: Press `d` to remove a worktree (stops container first if running)
-- **View**: Worktrees appear as `project [branch-name]` in the dashboard
+Pipe credentials (API keys, tokens) into your devcontainers automatically.
 
-Constraints:
-- Can only create worktrees on git repositories
-- Cannot delete the main worktree (only branches)
-
-## Configuration
-
-Config file location (in priority order):
-1. **Recommended**: `claude-quick.yaml` next to the executable (for `build.sh` installs, this is the repo root)
-2. **Legacy** (deprecated): `~/.config/claude-quick/config.yaml`
-
-```yaml
-search_paths:
-  - ~/projects
-  - ~/work
-max_depth: 3
-default_session_name: main
-```
-
-### Migrating from Legacy Location
-
-If you have an existing config at `~/.config/claude-quick/config.yaml`:
-
-```bash
-cp ~/.config/claude-quick/config.yaml /path/to/claude-quick/claude-quick.yaml
-```
-
-The legacy location will still work but shows a deprecation warning.
-
-See [`claude-quick.yaml.example`](claude-quick.yaml.example) for all options.
-
-## Authentication
-
-Pipe authentication credentials (API keys, tokens) into your devcontainers automatically.
-
-### Setup
-
-Add an `auth` section to your config:
+Add credentials via the wizard, or manually in your config:
 
 ```yaml
 auth:
@@ -128,54 +82,47 @@ auth:
       value: "op read op://Private/OpenAI/credential"
 ```
 
-### Source Types
-
+**Source types:**
 | Type | Description | Value |
 |------|-------------|-------|
-| `file` | Read credential from a file | Path to file (supports `~`) |
-| `env` | Read from host environment variable | Name of the env var |
-| `command` | Run a command and use output | Shell command to execute |
+| `file` | Read from a file | Path (supports `~`) |
+| `env` | Read from host env var | Variable name |
+| `command` | Run a command | Shell command |
 
-### Project-Specific Overrides
+Credentials are injected as environment variables in your tmux session and cleaned up when the container stops.
 
-Override credentials for specific projects by directory name:
+</details>
 
-```yaml
-auth:
-  credentials:
-    - name: ANTHROPIC_API_KEY
-      source: file
-      value: ~/.claude/default-key
+<details>
+<summary><strong>Git Worktrees</strong></summary>
 
-  projects:
-    my-work-project:
-      credentials:
-        - name: ANTHROPIC_API_KEY
-          source: file
-          value: ~/.claude/work-key
+Each git worktree is treated as a separate devcontainer instance:
+
+- **Create**: Press `n` on any git repository
+- **Delete**: Press `d` to remove a worktree (stops container first)
+- **View**: Worktrees appear as `project [branch-name]` in the dashboard
+
+Constraints:
+- Can only create worktrees on git repositories
+- Cannot delete the main worktree
+
+</details>
+
+## Project Structure
+
+```
+claude-quick/
+├── main.go              # Entry point
+├── internal/
+│   ├── config/          # YAML config loading
+│   ├── auth/            # Credential management
+│   ├── devcontainer/    # Container and git operations
+│   └── tui/             # Terminal interface (Bubble Tea)
 ```
 
-### How It Works
+## Contributing
 
-1. On container start, credentials are resolved and written to `.claude-quick-auth` in the project directory
-2. When you create a tmux session, environment variables are injected via `tmux setenv`
-3. All windows/panes in the session inherit these credentials
-4. On container stop, the credential file is automatically cleaned up
-
-The `.claude-quick-auth` file is added to `.gitignore` to prevent accidental commits.
-
-## Nerd Font Support
-
-For proper Unicode rendering in devcontainers (e.g., Claude CLI), add to your `devcontainer.json`:
-
-```json
-{
-  "containerEnv": {
-    "TERM": "xterm-256color",
-    "LANG": "en_US.UTF-8"
-  }
-}
-```
+PRs welcome! Check out the [open issues](https://github.com/christophergyman/claude-quick/issues).
 
 ## License
 
