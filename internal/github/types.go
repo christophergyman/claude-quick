@@ -69,9 +69,11 @@ func (c Config) ShouldCreateLabelIfMissing() bool {
 // DefaultConfig returns the default GitHub configuration.
 func DefaultConfig() Config {
 	return Config{
-		DefaultState:    IssueStateOpen,
-		BranchPrefix:    "issue-",
-		MaxIssues:       50,
-		InProgressLabel: "in-progress",
+		DefaultState:     IssueStateOpen,
+		BranchPrefix:     "issue-",
+		MaxIssues:        50,
+		InProgressLabel:  "in-progress",
+		LabelColor:       "fbca04",
+		LabelDescription: "Issue is being actively worked on",
 	}
 }
